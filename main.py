@@ -1,6 +1,9 @@
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
 import atexit
 import ctypes
+import json
+import os
+import time
 import tkinter as tk
 from ctypes import wintypes
 import easyocr
@@ -15,9 +18,29 @@ import mouse
 from snipping_selector import SnippingSelector
 from kokoro_tts import send_to_kokoro
 
+CONFIG_FILE = "config.json"
+LOCAL_CONFIG_FILE = "config.local.json"
+
+def load_config():
+    if os.path.exists(LOCAL_CONFIG_FILE):
+        print(f"Loading testing config from {LOCAL_CONFIG_FILE}...")
+        with open(LOCAL_CONFIG_FILE, 'r') as f:
+            return json.load(f)
+
+    print(f"Loading base defaults from {CONFIG_FILE}...")
+    with open(CONFIG_FILE, 'r') as f:
+        base_config = json.load(f)
+
+    print(f"Creating local {LOCAL_CONFIG_FILE} file automatically...")
+    with open(LOCAL_CONFIG_FILE, 'w') as f:
+        json.dump(base_config, f, indent=4)
+
+config = load_config()
+
+
 # The ID for "Window Focus Changed" in Windows API
 EVENT_WINDOW_FOCUS_CHANGED = win32con.EVENT_OBJECT_FOCUS
-TARGET_WINDOW_TITLE = "Settings" # TODO make generic, customizable, configurable, with keybinds and manual entry in a config file
+TARGET_WINDOW_TITLE = config["TARGET_WINDOW_TITLE"]
 
 # Verify cuda stuff for ocr debugging
 # print(f"CUDA status: {torch.cuda.is_available()}")
@@ -45,6 +68,7 @@ WinEventProcess = ctypes.WINFUNCTYPE(
 is_selecting = False
 selected_areas = []
 active_hwnd = None
+last_text = None
 
 def check_if_targeted_window(hwnd):
     window_title = win32gui.GetWindowText(hwnd)
@@ -103,6 +127,7 @@ def capture_window(hwnd):
 
 # Get text from passed image
 def run_ocr(screenshot):
+    global last_text
     # convert screenshot to easyOCR compatible format
     img_array = np.array(screenshot)
     img_rgb = img_array[:, :, :3][:, :, ::-1]
@@ -117,8 +142,11 @@ def run_ocr(screenshot):
 
     print(all_text)
 
-    # sends and plays audio using local kokoro
-    send_to_kokoro(all_text)
+    # prevent duplicate requests
+    if all_text != last_text:
+        last_text = all_text
+        # sends and plays audio using local kokoro
+        send_to_kokoro(all_text)
 
 def select_portion():
     # Get the selected area from user
@@ -148,6 +176,7 @@ def on_left_click():
     print("Left clickie")
     global active_hwnd
     if check_if_targeted_window(active_hwnd):
+        time.sleep(0.5) # wait a bit for text to update before scanning
         capture_window(active_hwnd)
 
 mouse.on_click(on_left_click)
