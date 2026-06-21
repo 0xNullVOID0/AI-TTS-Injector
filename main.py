@@ -84,11 +84,27 @@ def check_if_targeted_window(hwnd):
 
 # Gets called when focused window changes
 def on_focus_change(win_event_hook, event, hwnd, id_object, id_child, event_thread, event_time):
-    global active_hwnd
+    global active_hwnd, last_text
     active_hwnd = hwnd
 
     if check_if_targeted_window(hwnd):
-        capture_window(hwnd)
+        screenshot = capture_screen()
+        if screenshot:
+            name, text = grab_name_and_text_selections(screenshot)
+            voice = get_voice_for_name(name)
+
+            # prevent duplicate requests
+            if text and text != last_text:
+                print(f"TEXT SELECTED: {text}")
+                last_text = text
+                # sends and plays audio using local kokoro
+                print("SENDING ")
+                send_to_kokoro(text, voice)
+            else:
+                print(f"ELSE NO TEXT")
+
+    # if check_if_targeted_window(hwnd): # TODO eventually add specfic and relative active window capture only?
+    #     capture_window(hwnd)
 
 def cleanup():
     user32.UnhookWinEvent(hook)
@@ -106,6 +122,39 @@ def get_voice_for_name(name):
             return voice
     return "af_heart"
 
+def capture_screen():
+    with mss.MSS() as sct:
+        # grab whole screen
+        screenshot = sct.grab(sct.monitors[1]) # TODO multi monitors?
+        screenshot = np.array(screenshot)
+        return screenshot
+
+def grab_name_and_text_selections(screenshot):
+    global last_text
+
+    # if these 2 selections have been set manually with keybinds or from the config then only scan and read those portions
+    if name_selector and text_selector:
+        print("NAME AND TEXT SELECTED")
+        name_crop = screenshot[
+            name_selector["top"]: name_selector["top"] + name_selector["height"],
+            name_selector["left"]: name_selector["left"] + name_selector["width"]
+        ]
+        raw_name = run_ocr(name_crop, is_raw_array=True)
+
+        # remove brackets, common artifact characters, and all surrounding whitespace
+        name = raw_name.replace('[', '').replace(']', '').strip() if raw_name else ""
+
+        print(f'name: {name}')
+
+        text_crop = screenshot[
+            text_selector["top"]: text_selector["top"] + text_selector["height"],
+            text_selector["left"]: text_selector["left"] + text_selector["width"]
+        ]
+        text = run_ocr(text_crop, is_raw_array=True)
+        print(f'text: {text}')
+
+        return name, text
+
 def capture_window(hwnd):
     global last_text
     rect = win32gui.GetWindowRect(hwnd)
@@ -116,78 +165,6 @@ def capture_window(hwnd):
     #     "width": rect[2] - rect[0],
     #     "height": rect[3] - rect[1]
     # }
-
-    # hardcoded coordinates for text we want to grab
-    name_box = {"top": 1094, "left": 327, "width": 728, "height": 50}
-    dial_box = {"top": 1193, "left": 332, "width": 1793, "height": 154}
-    # print(f'rect: {rect}')
-    # print(f'monitor: {monitor}')
-
-    voice = get_voice_for_name("Default")
-    text = ""
-
-
-
-    with mss.MSS() as sct:
-        # grab whole screen
-        screenshot = sct.grab(sct.monitors[1]) # TODO multi monitors?
-        screenshot = np.array(screenshot)
-
-        print(text_selector)
-        print(name_selector)
-        print(screenshot)
-
-        # if these 2 selections have been set manually with keybinds or from the config then only scan and read those portions
-        if name_selector and text_selector:
-            print("NAME AND TEXT SELECTED")
-            name_crop = screenshot[
-                name_selector["top"]: name_selector["top"] + name_selector["height"],
-                name_selector["left"]: name_selector["left"] + name_selector["width"]
-            ]
-            raw_name = run_ocr(name_crop, is_raw_array=True)
-
-            # remove brackets, common artifact characters, and all surrounding whitespace
-            name = raw_name.replace('[', '').replace(']', '').strip() if raw_name else ""
-
-            text_crop = screenshot[
-                text_selector["top"]: text_selector["top"] + text_selector["height"],
-                text_selector["left"]: text_selector["left"] + text_selector["width"]
-            ]
-            text = run_ocr(text_crop, is_raw_array=True)
-            print(f'name: {name}')
-            print(f'text: {text}')
-
-            voice = get_voice_for_name(name)
-        else:
-            print("ELSE NO NAME and TEXT SELECTED")
-            screenshot = sct.grab(sct.monitors[1])
-            print(f'screenshot: {screenshot}')
-            run_ocr(screenshot)
-
-        # todo dont take multiple screenshots, take 1 screenshot then look at the multiple portions of that 1 screenshot, taking multiple screenshots for no reason otherwise inefficient
-        # elif selected_areas:
-        #     for s in selected_areas:
-        #         screenshot = sct.grab(s)
-        #         print(f'screenshot: {screenshot}')
-        #         run_ocr(screenshot)
-        # else:
-        #     # screenshot = sct.grab(monitor)
-        #     screenshot = sct.grab(sct.monitors[1])
-        #     print(f'screenshot: {screenshot}')
-        #     run_ocr(screenshot)
-
-        # prevent duplicate requests
-        if text and text != last_text:
-            print(f"TEXT SELECTED: {text}")
-            last_text = text
-            last_text = text
-            # sends and plays audio using local kokoro
-            print("SENDING ")
-            send_to_kokoro(text, voice)
-        else:
-            print(f"ELSE NO TEXT")
-
-        return screenshot # not relevant anymore?
 
 # Get text from passed image
 def run_ocr(screenshot, is_raw_array=False):
@@ -212,13 +189,6 @@ def run_ocr(screenshot, is_raw_array=False):
     print(all_text)
     return all_text
 
-
-    # prevent duplicate requests # TODO move to capture window?
-    # if all_text != last_text:
-    #     last_text = all_text
-    #     # sends and plays audio using local kokoro
-    #     send_to_kokoro(all_text)
-
 def select_portion(type=""):
     global name_selector, text_selector
     # Get the selected area from user
@@ -234,12 +204,6 @@ def select_portion(type=""):
             # add selected area to array
             selected_areas.append(region) #TODO make relative to window size and or position? dont bother? too much work that a simple reselect would fix anyway
             print(f'selected selection: {selected_areas}')
-
-        # TODO remove below?
-        # Capture only selected region
-        # with mss.mss() as sct:
-            # img = np.array(sct.grab(region))
-        # results = ocr.ocr(img)
 
 
 # TODO just make all into on_trigger(type)? instead of get name and text?
@@ -263,7 +227,8 @@ def on_left_click():
     global active_hwnd
     if check_if_targeted_window(active_hwnd):
         time.sleep(0.5) # wait a bit for text to update before scanning
-        capture_window(active_hwnd)
+        capture_screen()
+        # capture_window(active_hwnd)
 
 mouse.on_click(on_left_click)
 
