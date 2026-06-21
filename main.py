@@ -16,7 +16,7 @@ import win32con
 import win32gui
 import mouse
 
-from config import load_config, CONFIG_FILE, LOCAL_CONFIG_FILE, update_config
+from config import load_config, CONFIG_FILE, LOCAL_CONFIG_FILE, update_config, cleanup_key
 from snipping_selector import SnippingSelector
 from kokoro_tts import send_to_kokoro
 
@@ -62,14 +62,18 @@ selected_areas = []
 name_selector = None
 text_selector = None
 
-# hardcode to skip constant manual repeat selections
-if "PARTY_NAME_COORDS" in config:
-    name_selector = config["PARTY_NAME_COORDS"]
-    print(f"Loading party name coordinates from {LOCAL_CONFIG_FILE}. {name_selector}")
+json_name_key = f"{cleanup_key(TARGET_WINDOW_TITLE)}_NAME_COORDS"
+json_text_key = f"{cleanup_key(TARGET_WINDOW_TITLE)}_TEXT_COORDS"
 
-if "PARTY_TEXT_COORDS" in config:
-    text_selector = config["PARTY_TEXT_COORDS"]
-    print(f"Loading party text coordinates from {LOCAL_CONFIG_FILE}. {text_selector}")
+
+# checks saved screen selections for targeted window to skip constant manual repeat selections
+if json_name_key in config:
+    name_selector = config[json_name_key]
+    print(f"Loading {json_name_key} from {LOCAL_CONFIG_FILE}. {name_selector}")
+
+if json_text_key in config:
+    text_selector = config[json_text_key]
+    print(f"Loading {json_text_key} from {LOCAL_CONFIG_FILE}. {text_selector}")
 
 active_hwnd = None
 active_window_title = None
@@ -218,9 +222,6 @@ def select_portion(p=""):
     # Get the selected area from user
     selector = SnippingSelector()
     region = selector.get_selection() # Returns (left, top, width, height)
-
-    def cleanup_key(key):
-        return str(key).replace(" ", "_").upper()
 
     if region:
         if p == "name":

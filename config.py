@@ -35,6 +35,10 @@ def load_config():
         print("ERROR: config not found")
         return None
 
+# turns key into proper json format and style
+def cleanup_key(key):
+    return str(key).replace(" ", "_").upper()
+
 def update_config(key, value):
     global data
     if not data:
