@@ -10,6 +10,7 @@ import numpy as np
 import pythoncom
 import win32con
 import win32gui
+import mouse
 
 from snipping_selector import SnippingSelector
 from kokoro_tts import send_to_kokoro
@@ -43,14 +44,23 @@ WinEventProcess = ctypes.WINFUNCTYPE(
 
 is_selecting = False
 selected_areas = []
+active_hwnd = None
 
-# Gets called when focused window changes
-def on_focus_change(win_event_hook, event, hwnd, id_object, id_child, event_thread, event_time):
+def check_if_targeted_window(hwnd):
     window_title = win32gui.GetWindowText(hwnd)
     print(f'Active Window: {window_title}')
 
     if window_title == TARGET_WINDOW_TITLE:
         print(f'Target Window in FOCUS')
+        return True
+    return False
+
+# Gets called when focused window changes
+def on_focus_change(win_event_hook, event, hwnd, id_object, id_child, event_thread, event_time):
+    global active_hwnd
+    active_hwnd = hwnd
+
+    if check_if_targeted_window(hwnd):
         capture_window(hwnd)
 
 def cleanup():
@@ -133,6 +143,14 @@ def on_trigger():
 
 # check for keybind and start screen selection on trigger
 kb.add_hotkey('ctrl+]', on_trigger) #TODO make keybind customizable
+
+def on_left_click():
+    print("Left clickie")
+    global active_hwnd
+    if check_if_targeted_window(active_hwnd):
+        capture_window(active_hwnd)
+
+mouse.on_click(on_left_click)
 
 def run():
     global hook

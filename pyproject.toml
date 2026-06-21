@@ -4,6 +4,7 @@ version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
     "keyboard>=0.13.5",
+    "mouse>=0.7.1",
     "mss>=10.2.0",
     "pygetwindow>=0.0.9",
     "pynput>=1.8.2",
