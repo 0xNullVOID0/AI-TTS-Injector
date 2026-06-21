@@ -6,6 +6,16 @@ import soundfile as sf
 # Local Kokoro endpoint
 KOKORO_URL = "http://localhost:8880/v1/audio/speech"
 
+def play_audio(response):
+    audio_data = io.BytesIO(response.content)
+
+    data, fs = sf.read(audio_data)
+
+    print("playing audio")
+    sd.play(data, fs)
+    sd.wait()
+    print("finished playing audio")
+
 def send_to_kokoro(text, voice="af_heart"):
     payload = {
         "model": "kokoro",
@@ -21,21 +31,18 @@ def send_to_kokoro(text, voice="af_heart"):
         }
     }
 
+    # prevent empty requests
+    if not text or not text.strip():
+        print("empty text")
+        return
+
     try:
         response = requests.post(KOKORO_URL, json=payload, timeout=10)
         print(f"response: {response}")
         print(f"response status: {response.status_code}")
 
         if response.status_code == 200:
-            # TODO make play audio its own function
-            audio_data = io.BytesIO(response.content)
-
-            data, fs = sf.read(audio_data)
-
-            print("playing audio")
-            sd.play(data, fs)
-            sd.wait()
-            print("finished playing audio")
+            play_audio(response)
         else:
             print(f"Kokoro server error: {response.status_code}: {response.text}")
     except requests.exceptions.RequestException as e:
