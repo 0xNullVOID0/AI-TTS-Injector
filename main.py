@@ -6,6 +6,7 @@ import os
 import time
 import tkinter as tk
 from ctypes import wintypes
+import cv2
 import easyocr
 import keyboard as kb
 import mss
@@ -63,12 +64,12 @@ text_selector = None
 
 # hardcode to skip constant manual repeat selections
 if "PARTY_NAME_COORDS" in config:
-    print(f"Loading party name coordinates from {LOCAL_CONFIG_FILE}...")
     name_selector = config["PARTY_NAME_COORDS"]
+    print(f"Loading party name coordinates from {LOCAL_CONFIG_FILE}. {name_selector}")
 
 if "PARTY_TEXT_COORDS" in config:
-    print(f"Loading party text coordinates from {LOCAL_CONFIG_FILE}...")
     text_selector = config["PARTY_TEXT_COORDS"]
+    print(f"Loading party text coordinates from {LOCAL_CONFIG_FILE}. {text_selector}")
 
 active_hwnd = None
 last_text = None
@@ -82,29 +83,33 @@ def check_if_targeted_window(hwnd):
         return True
     return False
 
+def start_ocr_process(hwnd):
+    global last_text
+    screenshot = capture_window(hwnd)
+
+    if screenshot.any():
+        name, text = grab_name_and_text_selections(screenshot)
+        voice = get_voice_for_name(name)
+
+        # prevent duplicate requests
+        if text and text != last_text:
+            print(f"TEXT SELECTED: {text}")
+            last_text = text
+            # sends and plays audio using local kokoro
+            print("SENDING ")
+            send_to_kokoro(text, voice)
+        else:
+            print(f"ELSE NO TEXT")
+
 # Gets called when focused window changes
 def on_focus_change(win_event_hook, event, hwnd, id_object, id_child, event_thread, event_time):
     global active_hwnd, last_text
     active_hwnd = hwnd
 
     if check_if_targeted_window(hwnd):
-        screenshot = capture_screen()
-        if screenshot:
-            name, text = grab_name_and_text_selections(screenshot)
-            voice = get_voice_for_name(name)
-
-            # prevent duplicate requests
-            if text and text != last_text:
-                print(f"TEXT SELECTED: {text}")
-                last_text = text
-                # sends and plays audio using local kokoro
-                print("SENDING ")
-                send_to_kokoro(text, voice)
-            else:
-                print(f"ELSE NO TEXT")
+        start_ocr_process(hwnd)
 
     # if check_if_targeted_window(hwnd): # TODO eventually add specfic and relative active window capture only?
-    #     capture_window(hwnd)
 
 def cleanup():
     user32.UnhookWinEvent(hook)
@@ -127,6 +132,7 @@ def capture_screen():
         # grab whole screen
         screenshot = sct.grab(sct.monitors[1]) # TODO multi monitors?
         screenshot = np.array(screenshot)
+        print(f'screenshot shape: {screenshot.shape}')
         return screenshot
 
 def grab_name_and_text_selections(screenshot):
@@ -139,7 +145,10 @@ def grab_name_and_text_selections(screenshot):
             name_selector["top"]: name_selector["top"] + name_selector["height"],
             name_selector["left"]: name_selector["left"] + name_selector["width"]
         ]
+
         raw_name = run_ocr(name_crop, is_raw_array=True)
+        print(f'name selector: {name_selector}')
+        print(f'name_crop: {name_crop}')
 
         # remove brackets, common artifact characters, and all surrounding whitespace
         name = raw_name.replace('[', '').replace(']', '').strip() if raw_name else ""
@@ -153,18 +162,29 @@ def grab_name_and_text_selections(screenshot):
         text = run_ocr(text_crop, is_raw_array=True)
         print(f'text: {text}')
 
+        # save screenshots for debugging
+        timestamp = time.strftime("%Y%m%d-%H%M%S")
+        cv2.imwrite(f"screenshots/debug_name_crop_{timestamp}.png", name_crop)
+        cv2.imwrite(f"screenshots/debug_text_crop_{timestamp}.png", text_crop)
+
         return name, text
 
 def capture_window(hwnd):
     global last_text
     rect = win32gui.GetWindowRect(hwnd)
-    # # convert rect to appropiate dictionary for mss
-    # monitor = {
-    #     "top": rect[1],
-    #     "left": rect[0],
-    #     "width": rect[2] - rect[0],
-    #     "height": rect[3] - rect[1]
-    # }
+    # convert rect to appropiate dictionary for mss
+    monitor = {
+        "top": rect[1],
+        "left": rect[0],
+        "width": rect[2] - rect[0],
+        "height": rect[3] - rect[1]
+    }
+    with mss.MSS() as sct:
+        try:
+            window_capture = sct.grab(monitor)
+            return np.array(window_capture)
+        except Exception as e:
+            print(f"Failed to grab window boundaries: {e}. Falling back.")
 
 # Get text from passed image
 def run_ocr(screenshot, is_raw_array=False):
@@ -189,16 +209,17 @@ def run_ocr(screenshot, is_raw_array=False):
     print(all_text)
     return all_text
 
-def select_portion(type=""):
+def select_portion(p=""):
     global name_selector, text_selector
     # Get the selected area from user
     selector = SnippingSelector()
     region = selector.get_selection() # Returns (left, top, width, height)
 
     if region:
-        if type == "name":
+        if p == "name":
+            print(f"Selected name: {region}")
             name_selector = region
-        elif type == "text":
+        elif p == "text":
             text_selector = region
         else:
             # add selected area to array
@@ -207,28 +228,21 @@ def select_portion(type=""):
 
 
 # TODO just make all into on_trigger(type)? instead of get name and text?
-def on_trigger():
+def on_trigger(p):
     print("Keybind pressed")
-    select_portion()
-
-def get_name():
-    select_portion("name")
-
-def get_text():
-    select_portion("text")
+    select_portion(p)
 
 # check for keybind and start screen selection on trigger
 kb.add_hotkey('ctrl+.', on_trigger) #TODO make keybind customizable
-kb.add_hotkey('ctrl+[', get_name)
-kb.add_hotkey('ctrl+]', get_text)
+kb.add_hotkey('ctrl+[', on_trigger, args=['name'])
+kb.add_hotkey('ctrl+]', on_trigger, args=['text'])
 
 def on_left_click():
     print("Left clickie")
     global active_hwnd
     if check_if_targeted_window(active_hwnd):
         time.sleep(0.5) # wait a bit for text to update before scanning
-        capture_screen()
-        # capture_window(active_hwnd)
+        start_ocr_process(active_hwnd)
 
 mouse.on_click(on_left_click)
 
