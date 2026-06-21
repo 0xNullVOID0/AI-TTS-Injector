@@ -18,6 +18,10 @@ import mouse
 from snipping_selector import SnippingSelector
 from kokoro_tts import send_to_kokoro
 
+# TODO add auto play with something like capslock toggle
+# TODO add emergency skip or stop button and or toggle
+# TODO move config to its own file
+
 CONFIG_FILE = "config.json"
 LOCAL_CONFIG_FILE = "config.local.json"
 
@@ -25,7 +29,9 @@ def load_config():
     if os.path.exists(LOCAL_CONFIG_FILE):
         print(f"Loading testing config from {LOCAL_CONFIG_FILE}...")
         with open(LOCAL_CONFIG_FILE, 'r') as f:
-            return json.load(f)
+            j = json.load(f)
+            print(j)
+            return j
 
     print(f"Loading base defaults from {CONFIG_FILE}...")
     with open(CONFIG_FILE, 'r') as f:
@@ -37,6 +43,9 @@ def load_config():
 
 config = load_config()
 
+# Map character names to the desired Kokoro voice codes
+VOICE_MAP = config['VOICE_MAP']
+print(f"voice map: {VOICE_MAP}")
 
 # The ID for "Window Focus Changed" in Windows API
 EVENT_WINDOW_FOCUS_CHANGED = win32con.EVENT_OBJECT_FOCUS
@@ -67,6 +76,18 @@ WinEventProcess = ctypes.WINFUNCTYPE(
 
 is_selecting = False
 selected_areas = []
+name_selector = None
+text_selector = None
+
+# hardcode to skip constant manual repeat selections
+if "PARTY_NAME_COORDS" in config:
+    print(f"Loading party name coordinates from {LOCAL_CONFIG_FILE}...")
+    name_selector = config["PARTY_NAME_COORDS"]
+
+if "PARTY_TEXT_COORDS" in config:
+    print(f"Loading party text coordinates from {LOCAL_CONFIG_FILE}...")
+    text_selector = config["PARTY_TEXT_COORDS"]
+
 active_hwnd = None
 last_text = None
 
@@ -93,43 +114,109 @@ def cleanup():
 
 atexit.register(cleanup)
 
-def capture_window(hwnd):
-    rect = win32gui.GetWindowRect(hwnd)
+def get_voice_for_name(name):
+    print("Getting voice for", name)
+    for character, voice in VOICE_MAP.items():
+        print(character)
+        print(voice)
+        if character.lower() in name.lower():
+            print(f"Set {character}'s voice: {voice}")
+            return voice
+    return "af_heart"
 
-    # convert rect to appropiate dictionary for mss
-    monitor = {
-        "top": rect[1],
-        "left": rect[0],
-        "width": rect[2] - rect[0],
-        "height": rect[3] - rect[1]
-    }
+def capture_window(hwnd):
+    global last_text
+    rect = win32gui.GetWindowRect(hwnd)
+    # # convert rect to appropiate dictionary for mss
+    # monitor = {
+    #     "top": rect[1],
+    #     "left": rect[0],
+    #     "width": rect[2] - rect[0],
+    #     "height": rect[3] - rect[1]
+    # }
 
     # hardcoded coordinates for text we want to grab
     name_box = {"top": 1094, "left": 327, "width": 728, "height": 50}
     dial_box = {"top": 1193, "left": 332, "width": 1793, "height": 154}
+    # print(f'rect: {rect}')
+    # print(f'monitor: {monitor}')
 
-    print(f'rect: {rect}')
-    print(f'monitor: {monitor}')
+    voice = get_voice_for_name("Default")
+    text = ""
+
+
 
     with mss.MSS() as sct:
-        # if user has selected areas on screen then those will be scanned and read, otherwise default is the full window
-        if selected_areas:
-            for s in selected_areas:
-                screenshot = sct.grab(s)
-                print(f'screenshot: {screenshot}')
-                run_ocr(screenshot)
+        # grab whole screen
+        screenshot = sct.grab(sct.monitors[1]) # TODO multi monitors?
+        screenshot = np.array(screenshot)
+
+        print(text_selector)
+        print(name_selector)
+        print(screenshot)
+
+        # if these 2 selections have been set manually with keybinds or from the config then only scan and read those portions
+        if name_selector and text_selector:
+            print("NAME AND TEXT SELECTED")
+            name_crop = screenshot[
+                name_selector["top"]: name_selector["top"] + name_selector["height"],
+                name_selector["left"]: name_selector["left"] + name_selector["width"]
+            ]
+            raw_name = run_ocr(name_crop, is_raw_array=True)
+
+            # remove brackets, common artifact characters, and all surrounding whitespace
+            name = raw_name.replace('[', '').replace(']', '').strip() if raw_name else ""
+
+            text_crop = screenshot[
+                text_selector["top"]: text_selector["top"] + text_selector["height"],
+                text_selector["left"]: text_selector["left"] + text_selector["width"]
+            ]
+            text = run_ocr(text_crop, is_raw_array=True)
+            print(f'name: {name}')
+            print(f'text: {text}')
+
+            voice = get_voice_for_name(name)
         else:
-            screenshot = sct.grab(monitor)
+            print("ELSE NO NAME and TEXT SELECTED")
+            screenshot = sct.grab(sct.monitors[1])
             print(f'screenshot: {screenshot}')
             run_ocr(screenshot)
+
+        # todo dont take multiple screenshots, take 1 screenshot then look at the multiple portions of that 1 screenshot, taking multiple screenshots for no reason otherwise inefficient
+        # elif selected_areas:
+        #     for s in selected_areas:
+        #         screenshot = sct.grab(s)
+        #         print(f'screenshot: {screenshot}')
+        #         run_ocr(screenshot)
+        # else:
+        #     # screenshot = sct.grab(monitor)
+        #     screenshot = sct.grab(sct.monitors[1])
+        #     print(f'screenshot: {screenshot}')
+        #     run_ocr(screenshot)
+
+        # prevent duplicate requests
+        if text and text != last_text:
+            print(f"TEXT SELECTED: {text}")
+            last_text = text
+            last_text = text
+            # sends and plays audio using local kokoro
+            print("SENDING ")
+            send_to_kokoro(text, voice)
+        else:
+            print(f"ELSE NO TEXT")
 
         return screenshot # not relevant anymore?
 
 # Get text from passed image
-def run_ocr(screenshot):
+def run_ocr(screenshot, is_raw_array=False):
     global last_text
+
+    # redundant?
+    if is_raw_array:
+        img_array = screenshot
+    else:
+        img_array = np.array(screenshot)
     # convert screenshot to easyOCR compatible format
-    img_array = np.array(screenshot)
     img_rgb = img_array[:, :, :3][:, :, ::-1]
     result = ocr.readtext(img_rgb)
 
@@ -141,22 +228,30 @@ def run_ocr(screenshot):
         all_text += text + " "
 
     print(all_text)
+    return all_text
 
-    # prevent duplicate requests
-    if all_text != last_text:
-        last_text = all_text
-        # sends and plays audio using local kokoro
-        send_to_kokoro(all_text)
 
-def select_portion():
+    # prevent duplicate requests # TODO move to capture window?
+    # if all_text != last_text:
+    #     last_text = all_text
+    #     # sends and plays audio using local kokoro
+    #     send_to_kokoro(all_text)
+
+def select_portion(type=""):
+    global name_selector, text_selector
     # Get the selected area from user
     selector = SnippingSelector()
     region = selector.get_selection() # Returns (left, top, width, height)
 
     if region:
-        # add selected area to array
-        selected_areas.append(region) #TODO make relative to window size and or position? dont bother? too much work that a simple reselect would fix anyway
-        print(f'selected selection: {selected_areas}')
+        if type == "name":
+            name_selector = region
+        elif type == "text":
+            text_selector = region
+        else:
+            # add selected area to array
+            selected_areas.append(region) #TODO make relative to window size and or position? dont bother? too much work that a simple reselect would fix anyway
+            print(f'selected selection: {selected_areas}')
 
         # TODO remove below?
         # Capture only selected region
@@ -165,12 +260,21 @@ def select_portion():
         # results = ocr.ocr(img)
 
 
+# TODO just make all into on_trigger(type)? instead of get name and text?
 def on_trigger():
     print("Keybind pressed")
     select_portion()
 
+def get_name():
+    select_portion("name")
+
+def get_text():
+    select_portion("text")
+
 # check for keybind and start screen selection on trigger
-kb.add_hotkey('ctrl+]', on_trigger) #TODO make keybind customizable
+kb.add_hotkey('ctrl+.', on_trigger) #TODO make keybind customizable
+kb.add_hotkey('ctrl+[', get_name)
+kb.add_hotkey('ctrl+]', get_text)
 
 def on_left_click():
     print("Left clickie")

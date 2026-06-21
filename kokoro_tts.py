@@ -48,6 +48,7 @@ def send_to_kokoro(text, voice="af_heart"):
         print(f"response status: {response.status_code}")
 
         if response.status_code == 200:
+            print(f"playing audio with voice: {voice}")
             # thread for audio so it doesn't stop whole program
             audio_worker = threading.Thread(target=play_audio, args=(response,), daemon=True)
             audio_worker.start()
