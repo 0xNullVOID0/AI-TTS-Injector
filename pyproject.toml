@@ -8,4 +8,6 @@ dependencies = [
     "pygetwindow>=0.0.9",
     "pynput>=1.8.2",
     "pywin32>=312",
+    "sounddevice>=0.5.5",
+    "soundfile>=0.14.0",
 ]

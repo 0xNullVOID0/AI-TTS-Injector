@@ -12,6 +12,7 @@ import win32con
 import win32gui
 
 from snipping_selector import SnippingSelector
+from kokoro_tts import send_to_kokoro
 
 # The ID for "Window Focus Changed" in Windows API
 EVENT_WINDOW_FOCUS_CHANGED = win32con.EVENT_OBJECT_FOCUS
@@ -105,6 +106,9 @@ def run_ocr(screenshot):
         all_text += text + " "
 
     print(all_text)
+
+    # sends and plays audio using local kokoro
+    send_to_kokoro(all_text)
 
 def select_portion():
     # Get the selected area from user
