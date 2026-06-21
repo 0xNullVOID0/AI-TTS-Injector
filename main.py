@@ -15,6 +15,7 @@ import win32con
 import win32gui
 import mouse
 
+from config import load_config, CONFIG_FILE, LOCAL_CONFIG_FILE
 from snipping_selector import SnippingSelector
 from kokoro_tts import send_to_kokoro
 
@@ -22,32 +23,13 @@ from kokoro_tts import send_to_kokoro
 # TODO add emergency skip or stop button and or toggle
 # TODO move config to its own file
 
-CONFIG_FILE = "config.json"
-LOCAL_CONFIG_FILE = "config.local.json"
-
-def load_config():
-    if os.path.exists(LOCAL_CONFIG_FILE):
-        print(f"Loading testing config from {LOCAL_CONFIG_FILE}...")
-        with open(LOCAL_CONFIG_FILE, 'r') as f:
-            j = json.load(f)
-            print(j)
-            return j
-
-    print(f"Loading base defaults from {CONFIG_FILE}...")
-    with open(CONFIG_FILE, 'r') as f:
-        base_config = json.load(f)
-
-    print(f"Creating local {LOCAL_CONFIG_FILE} file automatically...")
-    with open(LOCAL_CONFIG_FILE, 'w') as f:
-        json.dump(base_config, f, indent=4)
-
 config = load_config()
 
 # Map character names to the desired Kokoro voice codes
 VOICE_MAP = config['VOICE_MAP']
 print(f"voice map: {VOICE_MAP}")
 
-# The ID for "Window Focus Changed" in Windows API
+# The ID for "Window Focus Changed" in Windows API https://learn.microsoft.com/en-us/windows/win32/winauto/event-constants
 EVENT_WINDOW_FOCUS_CHANGED = win32con.EVENT_OBJECT_FOCUS
 TARGET_WINDOW_TITLE = config["TARGET_WINDOW_TITLE"]
 
