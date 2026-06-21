@@ -16,7 +16,7 @@ import win32con
 import win32gui
 import mouse
 
-from config import load_config, CONFIG_FILE, LOCAL_CONFIG_FILE
+from config import load_config, CONFIG_FILE, LOCAL_CONFIG_FILE, update_config
 from snipping_selector import SnippingSelector
 from kokoro_tts import send_to_kokoro
 
@@ -72,10 +72,14 @@ if "PARTY_TEXT_COORDS" in config:
     print(f"Loading party text coordinates from {LOCAL_CONFIG_FILE}. {text_selector}")
 
 active_hwnd = None
+active_window_title = None
+last_active_window_title = None
 last_text = None
 
 def check_if_targeted_window(hwnd):
+    global active_window_title
     window_title = win32gui.GetWindowText(hwnd)
+    active_window_title = window_title
     print(f'Active Window: {window_title}')
 
     if window_title == TARGET_WINDOW_TITLE:
@@ -215,12 +219,17 @@ def select_portion(p=""):
     selector = SnippingSelector()
     region = selector.get_selection() # Returns (left, top, width, height)
 
+    def cleanup_key(key):
+        return str(key).replace(" ", "_").upper()
+
     if region:
         if p == "name":
             print(f"Selected name: {region}")
             name_selector = region
+            update_config(f"{cleanup_key(TARGET_WINDOW_TITLE)}_NAME_COORDS", name_selector) # save selected area to config to prevent constant repetition
         elif p == "text":
             text_selector = region
+            update_config(f"{cleanup_key(TARGET_WINDOW_TITLE)}_TEXT_COORDS", text_selector)
         else:
             # add selected area to array
             selected_areas.append(region) #TODO make relative to window size and or position? dont bother? too much work that a simple reselect would fix anyway
@@ -232,11 +241,6 @@ def on_trigger(p):
     print("Keybind pressed")
     select_portion(p)
 
-# check for keybind and start screen selection on trigger
-kb.add_hotkey('ctrl+.', on_trigger) #TODO make keybind customizable
-kb.add_hotkey('ctrl+[', on_trigger, args=['name'])
-kb.add_hotkey('ctrl+]', on_trigger, args=['text'])
-
 def on_left_click():
     print("Left clickie")
     global active_hwnd
@@ -245,6 +249,10 @@ def on_left_click():
         start_ocr_process(active_hwnd)
 
 mouse.on_click(on_left_click)
+# check for keybind and start screen selection on trigger
+kb.add_hotkey('ctrl+.', on_trigger) #TODO make keybind customizable
+kb.add_hotkey('ctrl+[', on_trigger, args=['name'])
+kb.add_hotkey('ctrl+]', on_trigger, args=['text'])
 
 def run():
     global hook
