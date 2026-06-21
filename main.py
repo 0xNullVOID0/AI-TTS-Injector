@@ -1,15 +1,15 @@
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
+import atexit
+import ctypes
+import tkinter as tk
+from ctypes import wintypes
 import easyocr
+import keyboard as kb
 import mss
+import numpy as np
+import pythoncom
 import win32con
 import win32gui
-import pythoncom
-import ctypes
-import atexit
-from ctypes import wintypes
-import os
-import numpy
-import torch
 
 # The ID for "Window Focus Changed" in Windows API
 EVENT_WINDOW_FOCUS_CHANGED = win32con.EVENT_OBJECT_FOCUS
@@ -38,6 +38,10 @@ WinEventProcess = ctypes.WINFUNCTYPE(
     wintypes.DWORD
 )
 
+is_selecting = False
+selected_areas = []
+
+# Gets called when focused window changes
 def on_focus_change(win_event_hook, event, hwnd, id_object, id_child, event_thread, event_time):
     window_title = win32gui.GetWindowText(hwnd)
     print(f'Active Window: {window_title}')
@@ -70,23 +74,108 @@ def capture_window(hwnd):
     print(f'rect: {rect}')
     print(f'monitor: {monitor}')
 
-
     with mss.MSS() as sct:
-        screenshot = sct.grab(monitor)
-        print(f'screenshot: {screenshot}')
-        run_ocr(screenshot)
+        # if user has selected areas on screen then those will be scanned and read, otherwise default is the full window
+        if selected_areas:
+            for s in selected_areas:
+                screenshot = sct.grab(s)
+                print(f'screenshot: {screenshot}')
+                run_ocr(screenshot)
+        else:
+            screenshot = sct.grab(monitor)
+            print(f'screenshot: {screenshot}')
+            run_ocr(screenshot)
 
-        return screenshot
+        return screenshot # not relevant anymore?
 
+# Get text from passed image
 def run_ocr(screenshot):
-    # convert screenshot to easyocr compatible format
-    img_array = numpy.array(screenshot)
+    # convert screenshot to easyOCR compatible format
+    img_array = np.array(screenshot)
     img_rgb = img_array[:, :, :3][:, :, ::-1]
     result = ocr.readtext(img_rgb)
+
+    all_text = ""
 
     # print text of image
     for (bbox, text, prob) in result:
         print(f"Detected: {text} (Confidence: {prob:.2f})")
+        all_text += text + " "
+
+    print(all_text)
+
+
+class SnippingSelector:
+    def __init__(self):
+        self.root = tk.Tk()
+        self.root.attributes('-alpha', 0.3)
+        self.root.attributes('-fullscreen', True)
+        self.root.attributes("-topmost", True)
+        self.root.config(cursor="cross")
+
+        self.canvas = tk.Canvas(self.root, cursor="cross", bg="grey")
+        self.canvas.pack(fill="both", expand=True)
+
+        self.coords = None
+        self.canvas.bind("<ButtonPress-1>", self.on_start)
+        self.canvas.bind("<B1-Motion>", self.on_drag)
+        self.canvas.bind("<ButtonRelease-1>", self.on_end)
+        self.root.bind("<Escape>", lambda e: self.root.destroy())
+
+    def on_start(self, event):
+        self.start_x, self.start_y = event.x, event.y
+        self.rect = self.canvas.create_rectangle(self.start_x, self.start_y, 1, 1, outline='red', width=2)
+
+    def on_drag(self, event):
+        self.canvas.coords(self.rect, self.start_x, self.start_y, event.x, event.y)
+
+    def on_end(self, event):
+        # Calculate absolute top-left and bottom-right
+        x1 = min(self.start_x, event.x)
+        y1 = min(self.start_y, event.y)
+        x2 = max(self.start_x, event.x)
+        y2 = max(self.start_y, event.y)
+
+        # Ensure width and height are positive
+        width = x2 - x1
+        height = y2 - y1
+
+        # Basic validation to check if user actually dragged a box
+        if width > 0 and height > 0:
+            self.coords = {'left': x1, 'top': y1, 'width': width, 'height': height}
+            print(f'selected coords: {self.coords}')
+        else:
+            self.coords = None
+
+        self.root.destroy()
+
+    def get_selection(self):
+        self.root.mainloop()
+        return self.coords
+
+def select_portion():
+    # Get the selected area from user
+    selector = SnippingSelector()
+    region = selector.get_selection() # Returns (left, top, width, height)
+
+    if region:
+        # add selected area to array
+        selected_areas.append(region) #TODO make relative to window size and or position? dont bother? too much work that a simple reselect would fix anyway
+        print(f'selected selection: {selected_areas}')
+
+        # TODO remove below?
+        # Capture only selected region
+        # with mss.mss() as sct:
+            # img = np.array(sct.grab(region))
+        # results = ocr.ocr(img)
+
+
+def on_trigger():
+    print("Keybind pressed")
+    select_portion()
+
+# check for keybind and start screen selection on trigger
+kb.add_hotkey('ctrl+]', on_trigger) #TODO make keybind customizable
 
 def run():
     global hook
@@ -107,7 +196,7 @@ def run():
         # Keep script running and listens for Windows events
         pythoncom.PumpMessages()
     except KeyboardInterrupt:
-        exit
+        return
 
 if __name__ == '__main__':
     run()
