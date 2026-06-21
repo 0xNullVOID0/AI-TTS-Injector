@@ -1,24 +1,24 @@
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
 import atexit
 import ctypes
-import json
-import os
+import threading
 import time
-import tkinter as tk
 from ctypes import wintypes
 import cv2
 import easyocr
 import keyboard as kb
+import mouse
 import mss
 import numpy as np
 import pythoncom
+import win32api
 import win32con
 import win32gui
-import mouse
 
-from config import load_config, CONFIG_FILE, LOCAL_CONFIG_FILE, update_config, cleanup_key
-from snipping_selector import SnippingSelector
+from autoplay import on_key_event
+from config import load_config, LOCAL_CONFIG_FILE, update_config, cleanup_key
 from kokoro_tts import send_to_kokoro
+from snipping_selector import SnippingSelector
 
 # TODO add auto play with something like capslock toggle
 # TODO add emergency skip or stop button and or toggle
@@ -65,7 +65,6 @@ text_selector = None
 json_name_key = f"{cleanup_key(TARGET_WINDOW_TITLE)}_NAME_COORDS"
 json_text_key = f"{cleanup_key(TARGET_WINDOW_TITLE)}_TEXT_COORDS"
 
-
 # checks saved screen selections for targeted window to skip constant manual repeat selections
 if json_name_key in config:
     name_selector = config[json_name_key]
@@ -79,15 +78,17 @@ active_hwnd = None
 active_window_title = None
 last_active_window_title = None
 last_text = None
+target_window_hwnd = None
 
 def check_if_targeted_window(hwnd):
-    global active_window_title
+    global active_window_title, target_window_hwnd
     window_title = win32gui.GetWindowText(hwnd)
     active_window_title = window_title
     print(f'Active Window: {window_title}')
 
     if window_title == TARGET_WINDOW_TITLE:
         print(f'Target Window in FOCUS')
+        target_window_hwnd = hwnd # save its hwnd so we can always easily find and use it
         return True
     return False
 
@@ -218,6 +219,7 @@ def run_ocr(screenshot, is_raw_array=False):
     return all_text
 
 def select_portion(p=""):
+    # TODO make it so that a window which gets snipped on automatically becomes the target window and gets saved and all other proper actions so its properly dynamic
     global name_selector, text_selector
     # Get the selected area from user
     selector = SnippingSelector()
@@ -254,6 +256,8 @@ mouse.on_click(on_left_click)
 kb.add_hotkey('ctrl+.', on_trigger) #TODO make keybind customizable
 kb.add_hotkey('ctrl+[', on_trigger, args=['name'])
 kb.add_hotkey('ctrl+]', on_trigger, args=['text'])
+
+kb.hook(lambda e: on_key_event(e, target_window_hwnd, start_ocr_process))
 
 def run():
     global hook
