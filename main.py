@@ -65,6 +65,7 @@ text_selector = None
 
 json_name_key = f"{cleanup_key(TARGET_WINDOW_TITLE)}_NAME_COORDS"
 json_text_key = f"{cleanup_key(TARGET_WINDOW_TITLE)}_TEXT_COORDS"
+default_voice = config["DEFAULT_VOICE"]
 
 # checks saved screen selections for targeted window to skip constant manual repeat selections
 if json_name_key in config:
@@ -74,6 +75,9 @@ if json_name_key in config:
 if json_text_key in config:
     text_selector = config[json_text_key]
     print(f"Loading {json_text_key} from {LOCAL_CONFIG_FILE}. {text_selector}")
+
+print(f'default_voice: {default_voice}')
+
 
 active_hwnd = None
 active_window_title = None
@@ -128,11 +132,11 @@ def cleanup():
 atexit.register(cleanup)
 
 def get_voice_for_name(name):
-    print("Getting voice for", name)
+    clean_name = name.strip().lower()
+    print("Getting voice for:", clean_name)
+
     for character, voice in VOICE_MAP.items():
-        print(character)
-        print(voice)
-        if character.lower() in name.lower():
+        if character.lower() == clean_name:
             print(f"Set {character}'s voice: {voice}")
             return voice
     return "af_heart"
