@@ -14,6 +14,7 @@ import pythoncom
 import win32api
 import win32con
 import win32gui
+import logger
 
 from autoplay import on_key_event
 from config import load_config, LOCAL_CONFIG_FILE, update_config, cleanup_key
