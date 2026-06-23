@@ -34,6 +34,7 @@ from window_handler import Window
 # TODO hook into renpy functionality? other engine options and easy not too heavy stuff but later not prio, generalist first approach
 # TODO other ocr options, and just general ocr settings for the ocr itself to adapt to the window's needs, its own text size and whatever
 # TODO can still take window capture of different than intended window, fix
+# TODO performance and delay testing, find bottleknecks
 
 # The ID for "Window Focus Changed" in Windows API https://learn.microsoft.com/en-us/windows/win32/winauto/event-constants
 EVENT_WINDOW_FOCUS_CHANGED = win32con.EVENT_OBJECT_FOCUS
@@ -111,11 +112,17 @@ def start_ocr_process(window):
 
 # Gets called when focused window changes
 def on_focus_change(win_event_hook, event, hwnd, id_object, id_child, event_thread, event_time):
-    global active_window, target_window
+    global active_window, target_window, name_selector, text_selector
     active_window = Window(hwnd)
+
+    # TODO if autoplay on stop checking as intensely 
 
     if active_window.is_target_window():
         target_window = active_window
+        name_key, text_key = config.get_window_selection_keys(config.target_window_title)
+        name_selector = config.get(name_key)
+        text_selector = config.get(text_key)
+
         start_ocr_process(target_window)
 
 def cleanup():

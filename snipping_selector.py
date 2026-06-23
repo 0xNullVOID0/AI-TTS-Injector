@@ -1,5 +1,7 @@
 import tkinter as tk
 
+# TODO fix snipping being buggy for fullscreen programs? or other issues
+
 # Creates a fullscreen overlay that allows user to select an area on screen they want scanned
 class SnippingSelector:
     def __init__(self, left, top, width, height):
