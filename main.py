@@ -111,7 +111,7 @@ def start_ocr_process(hwnd):
             last_text = text
             # sends and plays audio using local kokoro
             print("SENDING ")
-            send_to_kokoro(text, voice)
+            send_to_kokoro(text.lower(), voice)
         else:
             print(f"ELSE NO TEXT")
 
@@ -246,8 +246,14 @@ def select_portion(p=""):
 
 # TODO just make all into on_trigger(type)? instead of get name and text?
 def on_trigger(p):
+    global TARGET_WINDOW_TITLE
     print("Keybind pressed")
-    select_portion(p)
+    if p == "set_target_window":
+        # config["TARGET_WINDOW_TITLE"] = win32gui.GetWindowText(active_hwnd)
+        TARGET_WINDOW_TITLE = win32gui.GetWindowText(active_hwnd)
+        update_config("TARGET_WINDOW_TITLE", TARGET_WINDOW_TITLE)
+    else:
+        select_portion(p)
 
 def on_left_click():
     print("Left clickie")
@@ -261,6 +267,8 @@ mouse.on_click(on_left_click)
 kb.add_hotkey('ctrl+.', on_trigger) #TODO make keybind customizable
 kb.add_hotkey('ctrl+[', on_trigger, args=['name'])
 kb.add_hotkey('ctrl+]', on_trigger, args=['text'])
+kb.add_hotkey('ctrl+.', on_trigger, args=['set_target_window'])
+
 
 kb.hook(lambda e: on_key_event(e, target_window_hwnd, start_ocr_process))
 
