@@ -27,8 +27,20 @@ from window_handler import Window
 # TODO add auto play with something like capslock toggle
 # TODO add emergency skip or stop button and or toggle
 # TODO move config to its own file
+# TODO add GUI for settings, config, customization like voice selection, target window selection
+# TODO live translation?
+# TODO pipeline CI/CD stuff
+# TODO add check for kokoro api available/running, show in gui too
+# TODO better ocr post processing and other cleaning
+# TODO OCR post processing, correct size? downscaling, anti aliasing? different settings
+# TODO add some sort of dictionary check and others checking for warning signs of incorrect text then send to another AI model for verification, validation/fixing
+# TODO offer suno's bark compatibility / option, test it out first
+# TODO orpheus-tts for default emotional layer?
+# TODO hook into renpy functionality? other engine options and easy not too heavy stuff but later not prio, generalist first approach
+# TODO other ocr options, and just general ocr settings for the ocr itself to adapt to the window's needs, its own text size and whatever
 
 config = load_config()
+set_config(config) # quick workaround
 
 # Map character names to the desired Kokoro voice codes
 VOICE_MAP = config['VOICE_MAP']
@@ -87,18 +99,6 @@ last_text = None
 target_window_hwnd = None
 active_window = None
 target_window = None
-
-def check_if_targeted_window(hwnd):
-    global active_window_title, target_window_hwnd
-    window_title = win32gui.GetWindowText(hwnd)
-    active_window_title = window_title
-    print(f'Active Window: {window_title}')
-
-    if window_title == TARGET_WINDOW_TITLE:
-        print(f'Target Window in FOCUS')
-        target_window_hwnd = hwnd # save its hwnd so we can always easily find and use it
-        return True
-    return False
 
 
 def start_ocr_process(window):

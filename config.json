@@ -1,4 +1,12 @@
 {
   "TARGET_WINDOW_TITLE": "Settings",
-  "DEFAULT_VOICE": "af_heart"
+  "INTERVAL": 1.25,
+  "DEFAULT_VOICE": "af_heart",
+  "VOICE_MAP": {
+    "Narrator": "af_heart"
+  },
+  "KEYBINDS": {
+      "AUTOPLAY": "scroll lock",
+      "SET_TARGET_WINDOW": "ctrl+home"
+  }
 }
