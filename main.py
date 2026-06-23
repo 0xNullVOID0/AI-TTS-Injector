@@ -2,7 +2,6 @@
 import atexit
 import ctypes
 import re
-import threading
 import time
 from ctypes import wintypes
 import cv2
@@ -96,7 +95,7 @@ def start_ocr_process(window):
             voice = get_voice_for_name(name)
 
         # prevent duplicate requests
-        if text and text != last_text:
+        if text and text != config.last_text:
             print(f"TEXT SELECTED: {text}")
             config.last_text = text
             # sends and plays audio using local kokoro
@@ -134,6 +133,8 @@ def get_voice_for_name(name):
     return "af_heart"
 
     return config.default_voice
+
+# TODO remove? keep?
 def capture_screen():
     with mss.MSS() as sct:
         # grab whole screen
