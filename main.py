@@ -1,6 +1,7 @@
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
 import atexit
 import ctypes
+import re
 import threading
 import time
 from ctypes import wintypes
@@ -100,11 +101,28 @@ def check_if_targeted_window(hwnd):
 
 def start_ocr_process(hwnd):
     global last_text
-    screenshot = capture_window(hwnd)
+    screenshot = None # TODO rename screenshot everywhere to just image, captured_image?
+    voice = default_voice
 
-    if screenshot.any():
+    # only capture window if targeted window
+    if hwnd == target_window_hwnd:
+        screenshot = capture_window(hwnd)
+        print(f"screenshot: {screenshot}")
+    else:
+        print("Not the target window")
+
+    if screenshot is not None and screenshot.size > 0:
+        # TODO check if window has had name and or text selections set
+
         name, text = grab_name_and_text_selections(screenshot)
-        voice = get_voice_for_name(name)
+
+        # full window capture if name and text selections not set
+        if (name, text) == (0, 0):
+            print(f"Full window capture")
+            text = run_ocr(screenshot)
+            print(f'text: {text}')
+        else:
+            voice = get_voice_for_name(name)
 
         # prevent duplicate requests
         if text and text != last_text:
@@ -115,6 +133,9 @@ def start_ocr_process(hwnd):
             send_to_kokoro(text.lower(), voice)
         else:
             print(f"ELSE NO TEXT")
+    else:
+        print(f"No screenshot")
+
 
 # Gets called when focused window changes
 def on_focus_change(win_event_hook, event, hwnd, id_object, id_child, event_thread, event_time):
@@ -155,15 +176,15 @@ def grab_name_and_text_selections(screenshot):
 
     # if these 2 selections have been set manually with keybinds or from the config then only scan and read those portions
     if name_selector and text_selector:
-        print("NAME AND TEXT SELECTED")
+        print("name and text SELECTED")
         name_crop = screenshot[
             name_selector["top"]: name_selector["top"] + name_selector["height"],
             name_selector["left"]: name_selector["left"] + name_selector["width"]
         ]
 
         raw_name = run_ocr(name_crop, is_raw_array=True)
-        print(f'name selector: {name_selector}')
-        print(f'name_crop: {name_crop}')
+        # print(f'name selector: {name_selector}')
+        # print(f'name_crop: {name_crop}')
 
         # remove brackets, common artifact characters, and all surrounding whitespace
         name = raw_name.replace('[', '').replace(']', '').strip() if raw_name else ""
@@ -183,21 +204,34 @@ def grab_name_and_text_selections(screenshot):
         cv2.imwrite(f"screenshots/debug_text_crop_{timestamp}.png", text_crop)
 
         return name, text
+    else:
+        print("NO name and text selected")
+        return 0, 0 # return 0 if name and text selectors not set instead of None in case they are set but still return no value/text
 
 def capture_window(hwnd):
     global last_text
     rect = win32gui.GetWindowRect(hwnd)
     # convert rect to appropiate dictionary for mss
-    monitor = {
+    window_dimensions = {
         "top": rect[1],
         "left": rect[0],
         "width": rect[2] - rect[0],
         "height": rect[3] - rect[1]
     }
+    print(f'window rect: {rect}')
+    print(f'window dimensions: {window_dimensions}')
     with mss.MSS() as sct:
         try:
-            window_capture = sct.grab(monitor)
-            return np.array(window_capture)
+            dimensions = window_dimensions
+            window_capture = sct.grab(dimensions)
+            print(f"window capture: {window_capture}")
+            screenshot = np.array(window_capture)
+
+            # save screenshots for debugging
+            timestamp = time.strftime("%Y%m%d-%H%M%S")
+            cv2.imwrite(f"screenshots/window_{active_window_title}_{timestamp}.png", screenshot)
+
+            return screenshot
         except Exception as e:
             print(f"Failed to grab window boundaries: {e}. Falling back.")
 
@@ -205,11 +239,8 @@ def capture_window(hwnd):
 def run_ocr(screenshot, is_raw_array=False):
     global last_text, ocr_counter
 
-    # redundant?
-    if is_raw_array:
-        img_array = screenshot
-    else:
-        img_array = np.array(screenshot)
+    img_array = screenshot
+
     # convert screenshot to easyOCR compatible format
     img_rgb = img_array[:, :, :3][:, :, ::-1]
 
@@ -226,8 +257,7 @@ def run_ocr(screenshot, is_raw_array=False):
     all_text = ""
 
     # print text of image
-    for (bbox, text, prob) in result:
-        print(f"Detected: {text} (Confidence: {prob:.2f})")
+    for (bbox, text) in result:
         all_text += text + " "
 
     print(all_text)
@@ -236,7 +266,7 @@ def run_ocr(screenshot, is_raw_array=False):
 def select_portion(p=""):
     # TODO make it so that a window which gets snipped on automatically becomes the target window and gets saved and all other proper actions so its properly dynamic
     global name_selector, text_selector
-    # Get the selected area from user
+    # get the selected area from user
     selector = SnippingSelector()
     region = selector.get_selection() # Returns (left, top, width, height)
 
@@ -286,7 +316,7 @@ def run():
     global hook
     process = WinEventProcess(on_focus_change)
 
-    # Use the window event hook from user32.dll
+    # use the window event hook from user32.dll
     hook = user32.SetWinEventHook(
         EVENT_WINDOW_FOCUS_CHANGED, EVENT_WINDOW_FOCUS_CHANGED, 0,
         process, 0, 0,
@@ -298,7 +328,7 @@ def run():
         return
 
     try:
-        # Keep script running and listens for Windows events
+        # keep script running and listens for Windows events
         pythoncom.PumpMessages()
     except KeyboardInterrupt:
         return
