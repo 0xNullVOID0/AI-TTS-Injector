@@ -14,11 +14,6 @@ audio_played_counter = 0
 request_counter = 0
 succ_request_counter = 0
 
-# TODO make stuff into classes and objects
-config = None
-def set_config(c):
-    global config
-    config = c
 
 def play_audio(response):
     global audio_played_counter

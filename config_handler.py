@@ -11,8 +11,10 @@ class _Config:
         self.json = None
         self.load(filename)
         self.target_window_title = self.json["TARGET_WINDOW_TITLE"]
+        self.target_window_path = None
         self.default_voice = self.json["DEFAULT_VOICE"]
         self.voice_map = self.json['VOICE_MAP'] # Map character names to the desired Kokoro voice codes
+        self.last_text = None
 
         print(f'Config object init: {self.json}')
         print(f"voice map: {self.voice_map}")
@@ -54,7 +56,8 @@ class _Config:
             json.dump(self.json, f, indent=4)
         print(f"Saved {key} to {LOCAL_CONFIG_FILE}")
 
-    def get_window_key(self, window_title, affix=""):
+    @staticmethod
+    def get_window_key(window_title, affix=""):
         return f"{window_title}{affix}"
 
     def get_window_selection_keys(self, window_title):

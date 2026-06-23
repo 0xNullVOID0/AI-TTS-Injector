@@ -2,20 +2,27 @@ import time
 import cv2
 import mss
 import numpy as np
+import pywintypes
+import win32api
 import win32gui
+import win32process
+from config_handler import config
 
 
 class Window:
     def __init__(self, hwnd):
         self.hwnd = hwnd
         self.title = win32gui.GetWindowText(hwnd)
+        self.pid = None
+        self.path = self.get_process_path()
         print(f'Window object init: {self.title}')
 
-    def is_target_window(self, target_window_title):
-        # TODO more reliable check with hwnd or something else instead?
-        if self.title == target_window_title:
+
+    def is_target_window(self):
+        # TODO test programs with multiple windows, instances, popups whatever
+        # check both process path and title since title alone is too unreliable
+        if config.target_window_title == self.title and config.target_window_path == self.path:
             print(f'IS target window')
-            # target_window_hwnd = hwnd  # save its hwnd so we can always easily find and use it #TODO set this somewhere else, other function outside this?
             return True
         print(f'NOT target window')
         return False
@@ -59,3 +66,21 @@ class Window:
                 return img_array
             except Exception as e:
                 print(f"ERROR: Failed to grab window boundaries: {e}.")
+
+    # use process path instead of window name for more reliability
+    def get_process_path(self):
+        try:
+            # use PID and handle to get process path
+            _, pid = win32process.GetWindowThreadProcessId(self.hwnd)
+            handle = win32api.OpenProcess(0x0400 | 0x0010, False, pid)
+            self.pid = pid
+            path = win32process.GetModuleFileNameEx(handle, 0)
+            print(f'window PID: {pid}, path: {path}')
+            return path
+        except pywintypes.error as e:
+            if e.winerror == 87:
+                print(f"Failed to get process path but most likely the window just got minimized: {e}")
+            elif e.winerror == 5:
+                print(f"ERROR Access denied: {e}")
+            else:
+                print(f"ERROR: Failed to get process path: {e}")

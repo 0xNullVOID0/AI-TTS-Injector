@@ -33,8 +33,7 @@ from window_handler import Window
 # TODO orpheus-tts for default emotional layer?
 # TODO hook into renpy functionality? other engine options and easy not too heavy stuff but later not prio, generalist first approach
 # TODO other ocr options, and just general ocr settings for the ocr itself to adapt to the window's needs, its own text size and whatever
-
-
+# TODO can still take window capture of different than intended window, fix
 
 # The ID for "Window Focus Changed" in Windows API https://learn.microsoft.com/en-us/windows/win32/winauto/event-constants
 EVENT_WINDOW_FOCUS_CHANGED = win32con.EVENT_OBJECT_FOCUS
@@ -69,19 +68,16 @@ selected_areas = []
 name_selector = None
 text_selector = None
 
-last_text = None
-target_window_hwnd = None
 active_window = None
 target_window = None
 
 
 def start_ocr_process(window):
-    global last_text
     image = None
     voice = config.default_voice
 
     # only capture window if targeted window
-    if window and window.is_target_window(config.target_window_title):
+    if window and window.is_target_window():
         image = window.capture()
     else:
         print("Not the target window")
@@ -102,7 +98,7 @@ def start_ocr_process(window):
         # prevent duplicate requests
         if text and text != last_text:
             print(f"TEXT SELECTED: {text}")
-            last_text = text
+            config.last_text = text
             # sends and plays audio using local kokoro
             print("SENDING ")
             send_to_kokoro(text.lower(), voice)
@@ -114,10 +110,10 @@ def start_ocr_process(window):
 
 # Gets called when focused window changes
 def on_focus_change(win_event_hook, event, hwnd, id_object, id_child, event_thread, event_time):
-    global last_text, active_window, target_window
+    global active_window, target_window
     active_window = Window(hwnd)
 
-    if active_window.is_target_window(config.target_window_title):
+    if active_window.is_target_window():
         target_window = active_window
         start_ocr_process(target_window)
 
@@ -131,12 +127,13 @@ def get_voice_for_name(name):
     clean_name = name.strip().lower()
     print("Getting voice for:", clean_name)
 
-    for character, voice in VOICE_MAP.items():
+    for character, voice in config.voice_map.items():
         if character.lower() == clean_name:
             print(f"Set {character}'s voice: {voice}")
             return voice
     return "af_heart"
 
+    return config.default_voice
 def capture_screen():
     with mss.MSS() as sct:
         # grab whole screen
@@ -146,8 +143,6 @@ def capture_screen():
         return screenshot
 
 def grab_name_and_text_selections(screenshot):
-    global last_text
-
     # if these 2 selections have been set manually with keybinds or from the config then only scan and read those portions
     if name_selector and text_selector:
         print("name and text SELECTED")
@@ -205,7 +200,7 @@ def capture_window(window):
 
 # Get text from passed image
 def run_ocr(screenshot, is_raw_array=False):
-    global last_text, ocr_counter
+    global ocr_counter
 
     img_array = screenshot
 
@@ -261,8 +256,11 @@ def on_trigger(p):
     if p == "set_target_window":
         if active_window:
             title = active_window.title
+            path = active_window.get_process_path()
             config.target_window_title = title
+            config.target_window_path = path
             config.update("TARGET_WINDOW_TITLE", title)
+            config.update("TARGET_WINDOW_PATH", path)
     else:
         select_portion(p)
 
