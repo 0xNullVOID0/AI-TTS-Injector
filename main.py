@@ -41,6 +41,7 @@ TARGET_WINDOW_TITLE = config["TARGET_WINDOW_TITLE"]
 # print(f"DEBUG: Torch device name: {torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'None'}")
 # print(f"DEBUG: Python executable: {os.sys.executable}")
 ocr = easyocr.Reader(['en'], gpu=True)
+ocr_counter = 0
 
 # Load the Windows DLL for SetWinEventHook
 user32 = ctypes.windll.user32
@@ -202,7 +203,7 @@ def capture_window(hwnd):
 
 # Get text from passed image
 def run_ocr(screenshot, is_raw_array=False):
-    global last_text
+    global last_text, ocr_counter
 
     # redundant?
     if is_raw_array:
@@ -212,6 +213,8 @@ def run_ocr(screenshot, is_raw_array=False):
     # convert screenshot to easyOCR compatible format
     img_rgb = img_array[:, :, :3][:, :, ::-1]
     result = ocr.readtext(img_rgb)
+    ocr_counter += 1 # TODO also do a calculation with -duplicate text so it stays accurate with audio_played
+    print(f"ocr count: {ocr_counter}")
 
     all_text = ""
 
@@ -264,7 +267,7 @@ def on_left_click():
 
 mouse.on_click(on_left_click)
 # check for keybind and start screen selection on trigger
-kb.add_hotkey('ctrl+.', on_trigger) #TODO make keybind customizable
+#kb.add_hotkey('ctrl+.', on_trigger) #TODO make keybind customizable
 kb.add_hotkey('ctrl+[', on_trigger, args=['name'])
 kb.add_hotkey('ctrl+]', on_trigger, args=['text'])
 kb.add_hotkey('ctrl+.', on_trigger, args=['set_target_window'])
