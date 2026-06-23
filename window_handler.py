@@ -22,29 +22,22 @@ class Window:
 
     def get_dimensions(self):
         rect = self.get_bounds()
-        # convert rect to appropiate dictionary for mss
-        dimensions = {
-            "width": rect[2] - rect[0],
-            "height": rect[3] - rect[1]
-        }
-        print(f'Window dimensions: {dimensions}')
-        return dimensions
+        # calculate width and height using relative screen coords
+        width = rect[2] - rect[0]
+        height = rect[3] - rect[1]
+        print(f'window dimensions: width={width}, height={height}')
+        return width, height
 
     def get_capture_region(self):
         rect = self.get_bounds()
-        # region = {
-        #     "top": rect[1],
-        #     "left": rect[0],
-        #     "width": rect[2] - rect[0],
-        #     "height": rect[3] - rect[1]
-        # }
+        width, height = self.get_dimensions()
 
-        # convert rect to appropiate dictionary for mss
+        # convert rect to appropriate dictionary for mss
         region = {
             "top": rect[1],
             "left": rect[0],
+            "width": width,
+            "height": height
         }
-        print(f'Window region: {region}')
-        region.update(self.get_dimensions())
-        print(f'Window region: {region}')
+        print(f'window region: {region}')
         return region

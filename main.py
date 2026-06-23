@@ -148,10 +148,6 @@ def on_focus_change(win_event_hook, event, hwnd, id_object, id_child, event_thre
         target_window = active_window
         start_ocr_process(target_window)
 
-        # # TODO bullshit check?
-        # if not window:
-        #     window = active_hwnd
-
 def cleanup():
     user32.UnhookWinEvent(hook)
     print("Hook removed cleanly.")
@@ -308,7 +304,7 @@ kb.add_hotkey('ctrl+]', on_trigger, args=['text'])
 kb.add_hotkey('ctrl+.', on_trigger, args=['set_target_window'])
 
 
-kb.hook(lambda e: on_key_event(e, target_window_hwnd, start_ocr_process))
+kb.hook(lambda e: on_key_event(e, target_window, start_ocr_process))
 
 def run():
     global hook
