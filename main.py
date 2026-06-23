@@ -103,25 +103,24 @@ def check_if_targeted_window(hwnd):
 
 def start_ocr_process(window):
     global last_text
-    screenshot = None # TODO rename screenshot everywhere to just image, captured_image?
+    image = None
     voice = default_voice
 
     # only capture window if targeted window
     if window and window.is_target_window(TARGET_WINDOW_TITLE):
-        screenshot = capture_window(window)
-        print(f"screenshot: {screenshot}")
+        image = window.capture()
     else:
         print("Not the target window")
 
-    if screenshot is not None and screenshot.size > 0:
+    if image is not None and image.size > 0:
         # TODO check if window has had name and or text selections set
 
-        name, text = grab_name_and_text_selections(screenshot)
+        name, text = grab_name_and_text_selections(image)
 
         # full window capture if name and text selections not set
         if (name, text) == (0, 0):
             print(f"Full window capture")
-            text = run_ocr(screenshot)
+            text = run_ocr(image)
             print(f'text: {text}')
         else:
             voice = get_voice_for_name(name)

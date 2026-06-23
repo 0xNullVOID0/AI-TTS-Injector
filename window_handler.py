@@ -1,3 +1,7 @@
+import time
+import cv2
+import mss
+import numpy as np
 import win32gui
 
 
@@ -41,3 +45,18 @@ class Window:
         }
         print(f'window region: {region}')
         return region
+
+    def capture(self):
+        with mss.MSS() as sct:
+            try:
+                image = sct.grab(self.get_capture_region())
+                print(f"window capture: {image}")
+                img_array = np.array(image) # turn into numpy array so it can be used by cv and ocr
+
+                # save images for debugging
+                timestamp = time.strftime("%Y%m%d-%H%M%S")
+                cv2.imwrite(f"screenshots/window_{self.title}_{timestamp}.png", img_array)
+
+                return img_array
+            except Exception as e:
+                print(f"ERROR: Failed to grab window boundaries: {e}.")
