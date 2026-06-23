@@ -5,15 +5,18 @@ import win32con
 import win32gui
 import keyboard as kb
 
+from config_handler import config
+
 autoplay_on = False
 start_ocr_callback = None
-interval = 1
 
 # TODO add counters here
 
-# TODO add capturing target window screen instead of just a raw screenshot of monitor for autoplay to continue working even with alt tab and just more reliable in general
+def update_interval(i):
+    config.interval = i
+    config.save("INTERVAL", i)
+    print(f"interval updated to: {i}")
 
-def autoplay_loop(hwnd):
 def autoplay_loop(window):
     global autoplay_on
 

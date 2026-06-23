@@ -4,6 +4,7 @@ import os
 CONFIG_FILE = "config.json"
 LOCAL_CONFIG_FILE = "config.local.json"
 
+# TODO change self.json[key] to use key function
 
 class _Config:
     def __init__(self, filename):
@@ -15,6 +16,7 @@ class _Config:
         self.default_voice = self.json["DEFAULT_VOICE"]
         self.voice_map = self.json['VOICE_MAP'] # Map character names to the desired Kokoro voice codes
         self.last_text = None
+        self.interval = self.get("INTERVAL") # autoplay interval
 
         print(f'Config object init: {self.json}')
         print(f"voice map: {self.voice_map}")
@@ -40,6 +42,12 @@ class _Config:
             print(f"CONFIG not found")
             return None
 
+
+    def get(self, key):
+        if key in self.json:
+            return self.json[key]
+        print(f"ERROR: Could not find {key} in config")
+        return None
 
     def load(self, filename):
         loaded = False
