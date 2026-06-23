@@ -38,7 +38,7 @@ def on_key_event(event, target_window, ocr_func):
     start_ocr_callback = ocr_func
 
     if event.name == 'scroll lock' and event.event_type ==kb.KEY_UP:
-        scroll_lock_on = win32api.GetKeyState(0x91) & 1
+        scroll_lock_on = win32api.GetKeyState(0x91) & 1 # scroll lock key code
 
         if scroll_lock_on and target_window:
             if not autoplay_on:
@@ -53,7 +53,7 @@ def on_key_event(event, target_window, ocr_func):
 def send_background_click(window):
     try:
         # get relative window size and calc coords
-        _, _, width, height = win32gui.GetClientRect(hwnd)
+        width, height = window.get_dimensions()
         center_x = int(width / 2)
         center_y = int(height / 2)
         print(f"calculated center click at: ({center_x}, {center_y})")
