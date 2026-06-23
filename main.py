@@ -21,6 +21,7 @@ from autoplay import on_key_event
 from config import load_config, LOCAL_CONFIG_FILE, update_config, cleanup_key
 from kokoro_tts import send_to_kokoro
 from snipping_selector import SnippingSelector
+import fasttext
 from window_handler import Window
 
 # TODO add auto play with something like capslock toggle
@@ -82,9 +83,6 @@ if json_text_key in config:
 print(f'default_voice: {default_voice}')
 
 
-active_hwnd = None
-active_window_title = None
-last_active_window_title = None
 last_text = None
 target_window_hwnd = None
 active_window = None
@@ -143,9 +141,7 @@ def start_ocr_process(window):
 
 # Gets called when focused window changes
 def on_focus_change(win_event_hook, event, hwnd, id_object, id_child, event_thread, event_time):
-    global active_hwnd, last_text, active_window, target_window
-    active_hwnd = hwnd
-
+    global last_text, active_window, target_window
     active_window = Window(hwnd)
 
     if active_window.is_target_window(TARGET_WINDOW_TITLE):
@@ -232,7 +228,7 @@ def capture_window(window):
 
             # save screenshots for debugging
             timestamp = time.strftime("%Y%m%d-%H%M%S")
-            cv2.imwrite(f"screenshots/window_{active_window_title}_{timestamp}.png", screenshot)
+            cv2.imwrite(f"screenshots/window_{window.title}_{timestamp}.png", screenshot)
 
             return screenshot
         except Exception as e:
@@ -292,15 +288,14 @@ def on_trigger(p):
     global TARGET_WINDOW_TITLE
     print("Keybind pressed")
     if p == "set_target_window":
-        # config["TARGET_WINDOW_TITLE"] = win32gui.GetWindowText(active_hwnd)
-        TARGET_WINDOW_TITLE = win32gui.GetWindowText(active_hwnd)
-        update_config("TARGET_WINDOW_TITLE", TARGET_WINDOW_TITLE)
+        if active_window:
+            TARGET_WINDOW_TITLE = active_window.title
+            update_config("TARGET_WINDOW_TITLE", TARGET_WINDOW_TITLE)
     else:
         select_portion(p)
 
 def on_left_click():
     print("Left clickie")
-    global active_hwnd
     if active_window == target_window:
         time.sleep(0.5) # wait a bit for text to update before scanning
         start_ocr_process(target_window)
