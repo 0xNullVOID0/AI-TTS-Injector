@@ -5,6 +5,8 @@ CONFIG_FILE = "config.json"
 LOCAL_CONFIG_FILE = "config.local.json"
 data = None
 
+# TODO turn into class? easy global target_window_title and other settings available?
+
 def load_json(config=LOCAL_CONFIG_FILE):
     global data
     if os.path.exists(config):

@@ -21,6 +21,7 @@ from autoplay import on_key_event
 from config import load_config, LOCAL_CONFIG_FILE, update_config, cleanup_key
 from kokoro_tts import send_to_kokoro
 from snipping_selector import SnippingSelector
+from window_handler import Window
 
 # TODO add auto play with something like capslock toggle
 # TODO add emergency skip or stop button and or toggle
@@ -86,6 +87,8 @@ active_window_title = None
 last_active_window_title = None
 last_text = None
 target_window_hwnd = None
+active_window = None
+target_window = None
 
 def check_if_targeted_window(hwnd):
     global active_window_title, target_window_hwnd
@@ -99,14 +102,15 @@ def check_if_targeted_window(hwnd):
         return True
     return False
 
-def start_ocr_process(hwnd):
+
+def start_ocr_process(window):
     global last_text
     screenshot = None # TODO rename screenshot everywhere to just image, captured_image?
     voice = default_voice
 
     # only capture window if targeted window
-    if hwnd == target_window_hwnd:
-        screenshot = capture_window(hwnd)
+    if window and window.is_target_window(TARGET_WINDOW_TITLE):
+        screenshot = capture_window(window)
         print(f"screenshot: {screenshot}")
     else:
         print("Not the target window")
@@ -139,13 +143,18 @@ def start_ocr_process(hwnd):
 
 # Gets called when focused window changes
 def on_focus_change(win_event_hook, event, hwnd, id_object, id_child, event_thread, event_time):
-    global active_hwnd, last_text
+    global active_hwnd, last_text, active_window, target_window
     active_hwnd = hwnd
 
-    if check_if_targeted_window(hwnd):
-        start_ocr_process(hwnd)
+    active_window = Window(hwnd)
 
-    # if check_if_targeted_window(hwnd): # TODO eventually add specfic and relative active window capture only?
+    if active_window.is_target_window(TARGET_WINDOW_TITLE):
+        target_window = active_window
+        start_ocr_process(target_window)
+
+        # # TODO bullshit check?
+        # if not window:
+        #     window = active_hwnd
 
 def cleanup():
     user32.UnhookWinEvent(hook)
@@ -166,7 +175,7 @@ def get_voice_for_name(name):
 def capture_screen():
     with mss.MSS() as sct:
         # grab whole screen
-        screenshot = sct.grab(sct.monitors[1]) # TODO multi monitors?
+        screenshot = sct.grab(sct.monitors[1])
         screenshot = np.array(screenshot)
         print(f'screenshot shape: {screenshot.shape}')
         return screenshot
@@ -208,22 +217,16 @@ def grab_name_and_text_selections(screenshot):
         print("NO name and text selected")
         return 0, 0 # return 0 if name and text selectors not set instead of None in case they are set but still return no value/text
 
-def capture_window(hwnd):
+def capture_window(window):
     global last_text
-    rect = win32gui.GetWindowRect(hwnd)
-    # convert rect to appropiate dictionary for mss
-    window_dimensions = {
-        "top": rect[1],
-        "left": rect[0],
-        "width": rect[2] - rect[0],
-        "height": rect[3] - rect[1]
-    }
+    rect = window.get_bounds()
+    capture_region = window.get_capture_region()
+
     print(f'window rect: {rect}')
-    print(f'window dimensions: {window_dimensions}')
+    print(f'window capture region: {capture_region}')
     with mss.MSS() as sct:
         try:
-            dimensions = window_dimensions
-            window_capture = sct.grab(dimensions)
+            window_capture = sct.grab(capture_region)
             print(f"window capture: {window_capture}")
             screenshot = np.array(window_capture)
 
@@ -298,9 +301,9 @@ def on_trigger(p):
 def on_left_click():
     print("Left clickie")
     global active_hwnd
-    if check_if_targeted_window(active_hwnd):
+    if active_window == target_window:
         time.sleep(0.5) # wait a bit for text to update before scanning
-        start_ocr_process(active_hwnd)
+        start_ocr_process(target_window)
 
 mouse.on_click(on_left_click)
 # check for keybind and start screen selection on trigger
