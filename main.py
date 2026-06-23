@@ -14,6 +14,7 @@ import pythoncom
 import win32con
 
 from config_handler import config
+from autoplay import on_key_event, update_interval
 from kokoro_tts import send_to_kokoro
 from snipping_selector import SnippingSelector
 from window_handler import Window
@@ -67,6 +68,7 @@ selected_areas = []
 name_selector = None
 text_selector = None
 
+# TODO move to config?
 active_window = None
 target_window = None
 
@@ -229,31 +231,39 @@ def run_ocr(screenshot, is_raw_array=False):
 
 def select_portion(p=""):
     # TODO make it so that a window which gets snipped on automatically becomes the target window and gets saved and all other proper actions so its properly dynamic
-    global name_selector, text_selector
+    global target_window, name_selector, text_selector
     # get the selected area from user
-    selector = SnippingSelector()
-    region = selector.get_selection() # Returns (left, top, width, height)
 
-    if region:
-        name_key, text_key = config.get_window_selection_keys(config.target_window_title)
 
-        # save selected areas to config to prevent constant repetition
-        if p == "name":
-            print(f"Selected name: {region}")
-            name_selector = region
-            config.update(name_key, name_selector)
-        elif p == "text":
-            text_selector = region
-            config.update(text_key, text_selector)
-        else:
-            # add selected area to array
-            selected_areas.append(region) #TODO make relative to window size and or position? dont bother? too much work that a simple reselect would fix anyway
-            print(f'selected selection: {selected_areas}')
+    # TODO what if no target window? also make snipping a window the new target_window?
+    if target_window:
+        print("select portion IF target window")
+        r = target_window.get_capture_region()
+        selector = SnippingSelector(**r) # unpack dictionary into class initializer with ** operator
+        region = selector.get_selection() # returns (left, top, width, height)
+
+        if region:
+            name_key, text_key = config.get_window_selection_keys(config.target_window_title)
+
+            # save selected areas to config to prevent constant repetition
+            if p == "name":
+                print(f"Selected name: {region}")
+                name_selector = region
+                config.update(name_key, name_selector)
+            elif p == "text":
+                text_selector = region
+                config.update(text_key, text_selector)
+            else:
+                # add selected area to array
+                selected_areas.append(region) #TODO make relative to window size and or position? dont bother? too much work that a simple reselect would fix anyway
+                print(f'selected selection: {selected_areas}')
+    else:
+        print("select portion ELSE")
 
 
 # TODO just make all into on_trigger(type)? instead of get name and text?
 def on_trigger(p):
-    print("Keybind pressed")
+    print(f"Keybind pressed: {p}")
     if p == "set_target_window":
         if active_window:
             title = active_window.title
@@ -266,6 +276,7 @@ def on_trigger(p):
         select_portion(p)
 
 def on_left_click():
+    global target_window, target_window # TODO even neccesary?
     print("Left clickie")
     if active_window == target_window:
         time.sleep(0.5) # wait a bit for text to update before scanning

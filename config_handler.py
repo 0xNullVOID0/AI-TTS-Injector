@@ -12,7 +12,7 @@ class _Config:
         self.json = None
         self.load(filename)
         self.target_window_title = self.json["TARGET_WINDOW_TITLE"]
-        self.target_window_path = None
+        self.target_window_path = self.get("TARGET_WINDOW_PATH")
         self.default_voice = self.json["DEFAULT_VOICE"]
         self.voice_map = self.json['VOICE_MAP'] # Map character names to the desired Kokoro voice codes
         self.last_text = None

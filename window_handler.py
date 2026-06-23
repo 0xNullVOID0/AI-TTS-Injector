@@ -21,6 +21,16 @@ class Window:
     def is_target_window(self):
         # TODO test programs with multiple windows, instances, popups whatever
         # check both process path and title since title alone is too unreliable
+        ctwT = config.target_window_title
+        ctwP = config.target_window_path
+        print(f'target window title: {ctwT}')
+        print(f'target window path: {ctwP}')
+
+        print(f'SELF window title: {self.title}')
+        print(f'SELF window path: {self.path}')
+
+
+
         if config.target_window_title == self.title and config.target_window_path == self.path:
             print(f'IS target window')
             return True
