@@ -7,10 +7,9 @@ import win32gui
 
 class Window:
     def __init__(self, hwnd):
-        self.window = None
         self.hwnd = hwnd
         self.title = win32gui.GetWindowText(hwnd)
-        print(f'Window class init: {self.title}')
+        print(f'Window object init: {self.title}')
 
     def is_target_window(self, target_window_title):
         # TODO more reliable check with hwnd or something else instead?

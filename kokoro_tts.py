@@ -1,9 +1,9 @@
 import io
 import threading
-
 import requests
 import sounddevice as sd
 import soundfile as sf
+from config_handler import config
 
 # Local Kokoro endpoint
 KOKORO_URL = "http://localhost:8880/v1/audio/speech"
@@ -53,7 +53,7 @@ def fix_ocr_text(text):
     }
 
     # load corrections from config instead if set
-    if "TEXT_CORRECTIONS" in config:
+    if "TEXT_CORRECTIONS" in config.json:
         # TODO for character names strip all , . : and whatever else after it to prevent name pronounce alteration setting conflicts from config
         corrections = config["TEXT_CORRECTIONS"]
 

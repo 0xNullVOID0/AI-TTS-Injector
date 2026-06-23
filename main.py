@@ -12,16 +12,11 @@ import mouse
 import mss
 import numpy as np
 import pythoncom
-import win32api
 import win32con
-import win32gui
-import logger
 
-from autoplay import on_key_event
-from config import load_config, LOCAL_CONFIG_FILE, update_config, cleanup_key
+from config_handler import config
 from kokoro_tts import send_to_kokoro
 from snipping_selector import SnippingSelector
-import fasttext
 from window_handler import Window
 
 # TODO add auto play with something like capslock toggle
@@ -39,16 +34,11 @@ from window_handler import Window
 # TODO hook into renpy functionality? other engine options and easy not too heavy stuff but later not prio, generalist first approach
 # TODO other ocr options, and just general ocr settings for the ocr itself to adapt to the window's needs, its own text size and whatever
 
-config = load_config()
-set_config(config) # quick workaround
 
-# Map character names to the desired Kokoro voice codes
-VOICE_MAP = config['VOICE_MAP']
-print(f"voice map: {VOICE_MAP}")
 
 # The ID for "Window Focus Changed" in Windows API https://learn.microsoft.com/en-us/windows/win32/winauto/event-constants
 EVENT_WINDOW_FOCUS_CHANGED = win32con.EVENT_OBJECT_FOCUS
-TARGET_WINDOW_TITLE = config["TARGET_WINDOW_TITLE"]
+
 
 # Verify cuda stuff for ocr debugging
 # print(f"CUDA status: {torch.cuda.is_available()}")
@@ -79,22 +69,6 @@ selected_areas = []
 name_selector = None
 text_selector = None
 
-json_name_key = f"{cleanup_key(TARGET_WINDOW_TITLE)}_NAME_COORDS"
-json_text_key = f"{cleanup_key(TARGET_WINDOW_TITLE)}_TEXT_COORDS"
-default_voice = config["DEFAULT_VOICE"]
-
-# checks saved screen selections for targeted window to skip constant manual repeat selections
-if json_name_key in config:
-    name_selector = config[json_name_key]
-    print(f"Loading {json_name_key} from {LOCAL_CONFIG_FILE}. {name_selector}")
-
-if json_text_key in config:
-    text_selector = config[json_text_key]
-    print(f"Loading {json_text_key} from {LOCAL_CONFIG_FILE}. {text_selector}")
-
-print(f'default_voice: {default_voice}')
-
-
 last_text = None
 target_window_hwnd = None
 active_window = None
@@ -104,10 +78,10 @@ target_window = None
 def start_ocr_process(window):
     global last_text
     image = None
-    voice = default_voice
+    voice = config.default_voice
 
     # only capture window if targeted window
-    if window and window.is_target_window(TARGET_WINDOW_TITLE):
+    if window and window.is_target_window(config.target_window_title):
         image = window.capture()
     else:
         print("Not the target window")
@@ -143,7 +117,7 @@ def on_focus_change(win_event_hook, event, hwnd, id_object, id_child, event_thre
     global last_text, active_window, target_window
     active_window = Window(hwnd)
 
-    if active_window.is_target_window(TARGET_WINDOW_TITLE):
+    if active_window.is_target_window(config.target_window_title):
         target_window = active_window
         start_ocr_process(target_window)
 
@@ -265,13 +239,16 @@ def select_portion(p=""):
     region = selector.get_selection() # Returns (left, top, width, height)
 
     if region:
+        name_key, text_key = config.get_window_selection_keys(config.target_window_title)
+
+        # save selected areas to config to prevent constant repetition
         if p == "name":
             print(f"Selected name: {region}")
             name_selector = region
-            update_config(f"{cleanup_key(TARGET_WINDOW_TITLE)}_NAME_COORDS", name_selector) # save selected area to config to prevent constant repetition
+            config.update(name_key, name_selector)
         elif p == "text":
             text_selector = region
-            update_config(f"{cleanup_key(TARGET_WINDOW_TITLE)}_TEXT_COORDS", text_selector)
+            config.update(text_key, text_selector)
         else:
             # add selected area to array
             selected_areas.append(region) #TODO make relative to window size and or position? dont bother? too much work that a simple reselect would fix anyway
@@ -280,12 +257,12 @@ def select_portion(p=""):
 
 # TODO just make all into on_trigger(type)? instead of get name and text?
 def on_trigger(p):
-    global TARGET_WINDOW_TITLE
     print("Keybind pressed")
     if p == "set_target_window":
         if active_window:
-            TARGET_WINDOW_TITLE = active_window.title
-            update_config("TARGET_WINDOW_TITLE", TARGET_WINDOW_TITLE)
+            title = active_window.title
+            config.target_window_title = title
+            config.update("TARGET_WINDOW_TITLE", title)
     else:
         select_portion(p)
 
