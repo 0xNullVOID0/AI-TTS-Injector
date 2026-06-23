@@ -35,7 +35,45 @@ def play_audio(response):
         print("finished playing audio")
 
 def send_to_kokoro(text, voice="af_heart"):
+
+def fix_ocr_text(text):
+    # ocr often mistakes . for : and , for ; messing up speed of talking and pauses
+    text = text.replace(":", ".").replace(";", ",").replace("_", "...")
+
+    # manually add ' when it doesn't get scanned correctly
+    corrections = {
+        "youre": "you're",
+        "dont": "don't",
+        "cant": "can't",
+        "wont": "won't",
+        "hes": "he's",
+        "shes": "she's",
+        "ive": "i've",
+        "IIl": "I'll",
+    }
+
+    # load corrections from config instead if set
+    if "TEXT_CORRECTIONS" in config:
+        # TODO for character names strip all , . : and whatever else after it to prevent name pronounce alteration setting conflicts from config
+        corrections = config["TEXT_CORRECTIONS"]
+
+    # print("text corrections")
+    # print(corrections)
+
+    # split the text into words and check if they exist in the dictionary
+    words = text.split()
+    corrected_words = [corrections.get(word.lower(), word) for word in words]
+    return " ".join(corrected_words)
+
     global request_counter, succ_request_counter
+    # prevent empty requests
+    if not text or not text.strip():
+        print("empty text")
+        return
+
+    text = fix_ocr_text(text)
+    print("cleaned text: " + text)
+
     payload = {
         "model": "kokoro",
         "input": text,
@@ -49,11 +87,6 @@ def send_to_kokoro(text, voice="af_heart"):
             "phone_normalization": True
         }
     }
-
-    # prevent empty requests
-    if not text or not text.strip():
-        print("empty text")
-        return
 
     try:
         response = requests.post(KOKORO_URL, json=payload, timeout=10)

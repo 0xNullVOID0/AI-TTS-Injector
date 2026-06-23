@@ -212,7 +212,14 @@ def run_ocr(screenshot, is_raw_array=False):
         img_array = np.array(screenshot)
     # convert screenshot to easyOCR compatible format
     img_rgb = img_array[:, :, :3][:, :, ::-1]
-    result = ocr.readtext(img_rgb)
+
+
+    # set ocr with larger margin of error to prevent scanned text order being messed up by letters like q or l
+    result = ocr.readtext(img_rgb, paragraph=True, x_ths=1000.0,
+                           y_ths=0.1 #  prevents it from grouping across different vertical lines
+    )
+    # result = ocr.readtext(img_rgb)
+
     ocr_counter += 1 # TODO also do a calculation with -duplicate text so it stays accurate with audio_played
     print(f"ocr count: {ocr_counter}")
 
