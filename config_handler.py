@@ -6,6 +6,7 @@ LOCAL_CONFIG_FILE = "config.local.json"
 
 # TODO if statements for relevant places in code
 # TODO save and keep or delete screenshots and audio depending on level
+# TODO performance tiers, queue sizes, saving or skipping debug screenshots, audio whatever
 debug_levels = {
     1: "ALL",
     2: "INFO",
@@ -25,6 +26,13 @@ class _Config:
         self.voice_map = self.get('VOICE_MAP') # map character names to the desired Kokoro voice codes
         self.last_text = None
         self.interval = self.get("INTERVAL") # autoplay interval
+        self.running = True
+        self.next = False
+        self.audio_stop_event = threading.Event()
+        self.download_stop_event = threading.Event()
+        self.kokoro_url = self.get("KOKORO_URL")
+        self.debug = self.get("DEBUG")
+        # self.name_selector = self.get() # add or not?
 
         print(f'Config object init: {self.json}')
         print(f"voice map: {self.voice_map}")

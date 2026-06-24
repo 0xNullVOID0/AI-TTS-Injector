@@ -10,17 +10,14 @@ from profiler import profiler
 KOKORO_URL = config.kokoro_url
 
 # makes sure audio finishes playing before starting next
-audio_lock = threading.Lock()
+
+
 audio_played_counter = 0
 request_counter = 0
 succ_request_counter = 0
 
+# TODO turn off screenshots, turn off hard debug mode as in screenshots, turn off logging mode
 
-@profiler.time_profile
-def play_audio(response):
-    global audio_played_counter
-    with audio_lock:
-        audio_data = io.BytesIO(response.content)
 
         data, fs = sf.read(audio_data)
 
@@ -62,6 +59,16 @@ def fix_ocr_text(text):
     corrected_words = [corrections.get(word.lower(), word) for word in words]
     return " ".join(corrected_words)
 
+
+def fix_text():
+# TODO add both and others here
+# TODO dont do it for tts models which can actually properly pronounce such "speech"
+    return
+
+
+@profiler.time_profile
+def send_to_kokoro(text, voice):
+
     global request_counter, succ_request_counter
     # prevent empty requests
     if not text or not text.strip():
@@ -71,6 +78,7 @@ def fix_ocr_text(text):
     text = fix_ocr_text(text)
     print("cleaned text: " + text)
 
+# TODO add custom speech speed, increasing/decrasing it dynamically with keybinds or whatever
     payload = {
         "model": "kokoro",
         "input": text,
