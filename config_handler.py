@@ -36,6 +36,7 @@ class _Config:
         self.download_stop_event = threading.Event()
         self.kokoro_url = self.get("KOKORO_URL")
         self.debug = self.get("DEBUG")
+        self.ocr_counter = 0 # TOOD move
         # self.name_selector = self.get() # add or not?
 
         # TODO move name and text selector to here

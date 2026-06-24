@@ -15,10 +15,13 @@ import win32con
 
 from config_handler import config
 from autoplay import on_key_event, update_interval
-from kokoro_tts import send_to_kokoro
+from kokoro_tts import send
+from ocr import ocr
 from profiler import profiler
 from snipping_selector import SnippingSelector
 from window_handler import Window
+from mkb_handler import mkb
+
 
 # TODO add auto play with something like capslock toggle
 # TODO add emergency skip or stop button and or toggle
@@ -40,14 +43,6 @@ from window_handler import Window
 # The ID for "Window Focus Changed" in Windows API https://learn.microsoft.com/en-us/windows/win32/winauto/event-constants
 EVENT_WINDOW_FOCUS_CHANGED = win32con.EVENT_OBJECT_FOCUS
 
-
-# Verify cuda stuff for ocr debugging
-# print(f"CUDA status: {torch.cuda.is_available()}")
-# print(f"DEBUG: Torch sees GPU: {torch.cuda.is_available()}")
-# print(f"DEBUG: Torch device name: {torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'None'}")
-# print(f"DEBUG: Python executable: {os.sys.executable}")
-ocr = easyocr.Reader(['en'], gpu=True)
-ocr_counter = 0
 
 # Load the Windows DLL for SetWinEventHook
 user32 = ctypes.windll.user32
@@ -99,7 +94,7 @@ def start_ocr_process(window):
             config.last_text = text
             # sends and plays audio using local kokoro
             print("SENDING ")
-            send_to_kokoro(text.lower(), voice)
+            send(text.lower(), voice)
         else:
             print(f"ELSE NO TEXT")
     else:
@@ -118,8 +113,8 @@ def on_focus_change(win_event_hook, event, hwnd, id_object, id_child, event_thre
         name_key, text_key = config.get_target_window_selection_keys()
 
         # TODO fix make more reliable
-        name_selector = config.get(name_key)
-        text_selector = config.get(text_key)
+        config.name_selector = config.get(name_key)
+        config.text_selector = config.get(text_key)
 
         start_ocr_process(config.target_window)
 
@@ -154,11 +149,12 @@ def capture_screen():
 @profiler.time_profile
 def grab_name_and_text_selections(screenshot):
     # if these 2 selections have been set manually with keybinds or from the config then only scan and read those portions
-    if name_selector and text_selector:
+    if config.name_selector and config.text_selector:
         print("name and text SELECTED")
+        ns = config.name_selector
         name_crop = screenshot[
-            name_selector["top"]: name_selector["top"] + name_selector["height"],
-            name_selector["left"]: name_selector["left"] + name_selector["width"]
+            ns["top"]: ns["top"] + ns["height"],
+            ns["left"]: ns["left"] + ns["width"]
         ]
 
         raw_name = run_ocr(name_crop, is_raw_array=True)
@@ -170,9 +166,10 @@ def grab_name_and_text_selections(screenshot):
 
         print(f'name: {name}')
 
+        ts = config.text_selector
         text_crop = screenshot[
-            text_selector["top"]: text_selector["top"] + text_selector["height"],
-            text_selector["left"]: text_selector["left"] + text_selector["width"]
+            ts["top"]: ts["top"] + ts["height"],
+            ts["left"]: ts["left"] + ts["width"]
         ]
         text = run_ocr(text_crop, is_raw_array=True)
         print(f'text: {text}')
@@ -191,8 +188,6 @@ def grab_name_and_text_selections(screenshot):
 # Get text from passed image
 @profiler.time_profile
 def run_ocr(screenshot, is_raw_array=False):
-    global ocr_counter
-
     img_array = screenshot
 
     # convert screenshot to easyOCR compatible format
@@ -205,8 +200,8 @@ def run_ocr(screenshot, is_raw_array=False):
     )
     # result = ocr.readtext(img_rgb)
 
-    ocr_counter += 1 # TODO also do a calculation with -duplicate text so it stays accurate with audio_played
-    print(f"ocr count: {ocr_counter}")
+    config.ocr_counter += 1 # TODO also do a calculation with -duplicate text so it stays accurate with audio_played
+    print(f"ocr count: {config.ocr_counter}")
 
     all_text = ""
 
@@ -220,7 +215,6 @@ def run_ocr(screenshot, is_raw_array=False):
 
 def select_portion(p=""):
     # TODO make it so that a window which gets snipped on automatically becomes the target window and gets saved and all other proper actions so its properly dynamic
-    global name_selector, text_selector
     # get the selected area from user
 
 
@@ -237,11 +231,11 @@ def select_portion(p=""):
             # save selected areas to config to prevent constant repetition
             if p == "name":
                 print(f"Selected name: {region}")
-                name_selector = region
-                config.update(name_key, name_selector)
+                config.name_selector = region
+                config.update(name_key, region)
             elif p == "text":
-                text_selector = region
-                config.update(text_key, text_selector)
+                config.text_selector = region
+                config.update(text_key, region)
             else:
                 print("ELSE KEYBIND")
                 # add selected area to array
@@ -273,12 +267,12 @@ def on_trigger(p):
         config.stop()
     elif p == "up":
         config.start()
+    elif p == "name" or p == "text":
+        select_portion(p)
     else:
         print("ELSE KEYBIND")
-        # select_portion(p) # TODO remove?
 
 def on_left_click():
-    global target_window, target_window # TODO even neccesary?
     print("Left clickie")
 
     # if config.running:
@@ -290,21 +284,11 @@ def on_left_click():
         time.sleep(0.5) # wait a bit for text to update before scanning # TODO think about this time.sleep here, thread blocking issues and such
         start_ocr_process(config.target_window)
 
-mouse.on_click(on_left_click)
-# check for keybind and start screen selection on trigger
-#kb.add_hotkey('ctrl+.', on_trigger) #TODO make keybind customizable
-kb.add_hotkey('shift+[', on_trigger, args=['name'])
-kb.add_hotkey('shift+]', on_trigger, args=['text'])
-kb.add_hotkey('ctrl+.', on_trigger, args=['set_target_window'])
-
-# every arrow key direction
-kb.add_hotkey('left', on_trigger, args=['left'])
-kb.add_hotkey('right', on_trigger, args=['right'])
-kb.add_hotkey('up', on_trigger, args=['up'])
-kb.add_hotkey('down', on_trigger, args=['down'])
 
 
-kb.hook(lambda e: on_key_event(e, target_window, start_ocr_process))
+
+# TODO move to mkb handler
+kb.hook(lambda e: on_key_event(e, config.target_window, start_ocr_process))
 
 
 
@@ -323,6 +307,13 @@ def run():
     if not hook:
         print("Failed to set hook")
         return
+
+    # settings = SettingsGUI()
+    # settings.mainloop()
+
+    # set mouse and keyboard binds and pass trigger functions
+    mkb.set_keybinds(on_trigger)
+    mkb.set_mousebinds(on_left_click)
 
     try:
         # keep script running and listens for Windows events
