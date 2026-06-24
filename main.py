@@ -16,6 +16,7 @@ import win32con
 from config_handler import config
 from autoplay import on_key_event, update_interval
 from kokoro_tts import send_to_kokoro
+from profiler import profiler
 from snipping_selector import SnippingSelector
 from window_handler import Window
 
@@ -236,7 +237,8 @@ def run_ocr(screenshot, is_raw_array=False):
     for (bbox, text) in result:
         all_text += text + " "
 
-    print(all_text)
+ # TODO change vertical reading per program, set that setting per program, others are way more vertical text
+
     return all_text
 
 def select_portion(p=""):
@@ -296,8 +298,8 @@ def on_left_click():
 mouse.on_click(on_left_click)
 # check for keybind and start screen selection on trigger
 #kb.add_hotkey('ctrl+.', on_trigger) #TODO make keybind customizable
-kb.add_hotkey('ctrl+[', on_trigger, args=['name'])
-kb.add_hotkey('ctrl+]', on_trigger, args=['text'])
+kb.add_hotkey('shift+[', on_trigger, args=['name'])
+kb.add_hotkey('shift+]', on_trigger, args=['text'])
 kb.add_hotkey('ctrl+.', on_trigger, args=['set_target_window'])
 
 
