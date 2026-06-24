@@ -67,12 +67,7 @@ WinEventProcess = ctypes.WINFUNCTYPE(
 
 is_selecting = False
 selected_areas = []
-name_selector = None
-text_selector = None
 
-# TODO move to config?
-active_window = None
-target_window = None
 
 @profiler.time_profile
 def start_ocr_process(window):
@@ -113,18 +108,20 @@ def start_ocr_process(window):
 
 # Gets called when focused window changes
 def on_focus_change(win_event_hook, event, hwnd, id_object, id_child, event_thread, event_time):
-    global active_window, target_window, name_selector, text_selector
-    active_window = Window(hwnd)
+    # set active window so its globally available
+    config.active_window = Window(hwnd)
 
     # TODO if autoplay on stop checking as intensely
 
-    if active_window.is_target_window():
-        target_window = active_window
-        name_key, text_key = config.get_window_selection_keys(config.target_window_title)
+    if config.active_window.is_target_window():
+        config.target_window = config.active_window
+        name_key, text_key = config.get_target_window_selection_keys()
+
+        # TODO fix make more reliable
         name_selector = config.get(name_key)
         text_selector = config.get(text_key)
 
-        start_ocr_process(target_window)
+        start_ocr_process(config.target_window)
 
 def cleanup():
     user32.UnhookWinEvent(hook)
@@ -190,26 +187,6 @@ def grab_name_and_text_selections(screenshot):
         print("NO name and text selected")
         return 0, 0 # return 0 if name and text selectors not set instead of None in case they are set but still return no value/text
 
-def capture_window(window):
-    global last_text
-    rect = window.get_bounds()
-    capture_region = window.get_capture_region()
-
-    print(f'window rect: {rect}')
-    print(f'window capture region: {capture_region}')
-    with mss.MSS() as sct:
-        try:
-            window_capture = sct.grab(capture_region)
-            print(f"window capture: {window_capture}")
-            screenshot = np.array(window_capture)
-
-            # save screenshots for debugging
-            timestamp = time.strftime("%Y%m%d-%H%M%S")
-            cv2.imwrite(f"screenshots/window_{window.title}_{timestamp}.png", screenshot)
-
-            return screenshot
-        except Exception as e:
-            print(f"Failed to grab window boundaries: {e}. Falling back.")
 
 # Get text from passed image
 @profiler.time_profile
@@ -243,14 +220,14 @@ def run_ocr(screenshot, is_raw_array=False):
 
 def select_portion(p=""):
     # TODO make it so that a window which gets snipped on automatically becomes the target window and gets saved and all other proper actions so its properly dynamic
-    global target_window, name_selector, text_selector
+    global name_selector, text_selector
     # get the selected area from user
 
 
-    # TODO what if no target window? also make snipping a window the new target_window?
-    if target_window:
+    # TODO what if no target window? also make snipping a window the new config.target_window?
+    if config.target_window:
         print("select portion IF target window")
-        r = target_window.get_capture_region()
+        r = config.target_window.get_capture_region()
         selector = SnippingSelector(**r) # unpack dictionary into class initializer with ** operator
         region = selector.get_selection() # returns (left, top, width, height)
 
@@ -278,9 +255,11 @@ def select_portion(p=""):
 def on_trigger(p):
     print(f"Keybind pressed: {p}")
     if p == "set_target_window":
-        if active_window:
-            title = active_window.title
-            path = active_window.get_process_path()
+        if config.active_window:
+            title = config.active_window.title
+            path = config.active_window.get_process_path()
+
+            # TODO look at this
             config.target_window_title = title
             config.target_window_path = path
             config.update("TARGET_WINDOW_TITLE", title)
@@ -296,7 +275,7 @@ def on_trigger(p):
         config.start()
     else:
         print("ELSE KEYBIND")
-        select_portion(p)
+        # select_portion(p) # TODO remove?
 
 def on_left_click():
     global target_window, target_window # TODO even neccesary?
@@ -307,9 +286,9 @@ def on_left_click():
     # else:
     #     config.resume()
 
-    if active_window == target_window:
-        time.sleep(0.5) # wait a bit for text to update before scanning
-        start_ocr_process(target_window)
+    if config.active_window == config.target_window:
+        time.sleep(0.5) # wait a bit for text to update before scanning # TODO think about this time.sleep here, thread blocking issues and such
+        start_ocr_process(config.target_window)
 
 mouse.on_click(on_left_click)
 # check for keybind and start screen selection on trigger

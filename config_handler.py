@@ -8,6 +8,7 @@ LOCAL_CONFIG_FILE = "config.local.json"
 # TODO if statements for relevant places in code
 # TODO save and keep or delete screenshots and audio depending on level
 # TODO performance tiers, queue sizes, saving or skipping debug screenshots, audio whatever
+# TODO turn off screenshots, turn off hard debug mode as in screenshots, turn off logging mode
 debug_levels = {
     1: "ALL",
     2: "INFO",
@@ -23,6 +24,8 @@ class _Config:
         self.load(filename)
         self.target_window_title = self.get("TARGET_WINDOW_TITLE")
         self.target_window_path = self.get("TARGET_WINDOW_PATH")
+        self.target_window = None
+        self.active_window = None
         self.default_voice = self.get("DEFAULT_VOICE")
         self.voice_map = self.get('VOICE_MAP') # map character names to the desired Kokoro voice codes
         self.last_text = None
@@ -34,6 +37,8 @@ class _Config:
         self.kokoro_url = self.get("KOKORO_URL")
         self.debug = self.get("DEBUG")
         # self.name_selector = self.get() # add or not?
+
+        # TODO move name and text selector to here
 
         print(f'Config object init: {self.json}')
         print(f"voice map: {self.voice_map}")
@@ -98,6 +103,9 @@ class _Config:
     def get_window_key(window_title, affix=""):
         return f"{window_title}{affix}"
 
+    def get_target_window_selection_keys(self):
+        return self.get_window_selection_keys(self.target_window_title)
+
     def get_window_selection_keys(self, window_title):
         window_key = self.cleanup_key(f"{window_title}")
 
@@ -110,15 +118,14 @@ class _Config:
 
     # checks saved screen selections for window to skip constant manual repeat selections
     def get_window_selections(self, window_title):
-        name_key = self.cleanup_key(f"{window_title}_NAME_COORDS")
-        text_key = self.cleanup_key(f"{window_title}_TEXT_COORDS")
+        name_key, text_key = self.get_window_selection_keys(window_title)
 
         if self.has_keys(name_key, text_key):
-            name_selector = self.json[name_key]
-            text_selector = self.json[name_key]
+            name_selector = self.get(name_key)
+            text_selector = self.getg(text_key)
 
             print(f"Loading {name_key} from {LOCAL_CONFIG_FILE}. {name_selector}")
-            print(f"Loading {text_key} from {LOCAL_CONFIG_FILE}. {name_selector}")
+            print(f"Loading {text_key} from {LOCAL_CONFIG_FILE}. {text_key}")
             return name_selector, text_selector
         else:
             print(f"ERROR: Could not find {name_key} and {text_key}")
