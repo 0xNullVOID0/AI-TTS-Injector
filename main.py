@@ -1,27 +1,21 @@
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
 import atexit
 import ctypes
-import re
 import time
 from ctypes import wintypes
 import cv2
-import easyocr
-import keyboard as kb
-import mouse
 import mss
 import numpy as np
 import pythoncom
 import win32con
 
+from autoplay import update_interval
 from config_handler import config
-from autoplay import on_key_event, update_interval
 from kokoro_tts import send
-from ocr import ocr
+from mkb_handler import mkb
 from profiler import profiler
 from snipping_selector import SnippingSelector
 from window_handler import Window
-from mkb_handler import mkb
-
 
 # TODO add auto play with something like capslock toggle
 # TODO add emergency skip or stop button and or toggle

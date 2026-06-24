@@ -1,5 +1,6 @@
 {
   "DEBUG": "True",
+  "AUDIO_FOLDER": "saved_audio",
   "TARGET_WINDOW_TITLE": "Settings",
   "INTERVAL": 1.25,
   "DEFAULT_VOICE": "af_heart",
