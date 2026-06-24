@@ -4,6 +4,7 @@ import requests
 import sounddevice as sd
 import soundfile as sf
 from config_handler import config
+from profiler import profiler
 
 # Local Kokoro endpoint
 KOKORO_URL = "http://localhost:8880/v1/audio/speech"
@@ -15,6 +16,7 @@ request_counter = 0
 succ_request_counter = 0
 
 
+@profiler.time_profile
 def play_audio(response):
     global audio_played_counter
     with audio_lock:

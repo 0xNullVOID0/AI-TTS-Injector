@@ -73,7 +73,7 @@ text_selector = None
 active_window = None
 target_window = None
 
-
+@profiler.time_profile
 def start_ocr_process(window):
     image = None
     voice = config.default_voice
@@ -115,7 +115,7 @@ def on_focus_change(win_event_hook, event, hwnd, id_object, id_child, event_thre
     global active_window, target_window, name_selector, text_selector
     active_window = Window(hwnd)
 
-    # TODO if autoplay on stop checking as intensely 
+    # TODO if autoplay on stop checking as intensely
 
     if active_window.is_target_window():
         target_window = active_window
@@ -139,7 +139,8 @@ def get_voice_for_name(name):
         if character.lower() == clean_name:
             print(f"Set {character}'s voice: {voice}")
             return voice
-    return "af_heart"
+
+        #TODO just use VOICE_MAP.get(clean_name, default_voice)?
 
     return config.default_voice
 
@@ -152,6 +153,7 @@ def capture_screen():
         print(f'screenshot shape: {screenshot.shape}')
         return screenshot
 
+@profiler.time_profile
 def grab_name_and_text_selections(screenshot):
     # if these 2 selections have been set manually with keybinds or from the config then only scan and read those portions
     if name_selector and text_selector:
@@ -209,6 +211,7 @@ def capture_window(window):
             print(f"Failed to grab window boundaries: {e}. Falling back.")
 
 # Get text from passed image
+@profiler.time_profile
 def run_ocr(screenshot, is_raw_array=False):
     global ocr_counter
 
@@ -261,6 +264,7 @@ def select_portion(p=""):
                 text_selector = region
                 config.update(text_key, text_selector)
             else:
+                print("ELSE KEYBIND")
                 # add selected area to array
                 selected_areas.append(region) #TODO make relative to window size and or position? dont bother? too much work that a simple reselect would fix anyway
                 print(f'selected selection: {selected_areas}')
@@ -299,6 +303,9 @@ kb.add_hotkey('ctrl+.', on_trigger, args=['set_target_window'])
 
 kb.hook(lambda e: on_key_event(e, target_window, start_ocr_process))
 
+
+
+@profiler.time_profile
 def run():
     global hook
     process = WinEventProcess(on_focus_change)
