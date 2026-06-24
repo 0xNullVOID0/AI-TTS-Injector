@@ -1,7 +1,7 @@
 import mouse
 import keyboard as kb
 
-
+from autoplay import on_key_event
 from config_handler import config
 
 
@@ -24,6 +24,10 @@ class _MkbHandler:
 
     def set_mousebinds(self, trigger):
         mouse.on_click(trigger)
+
+    def set_autoplay_hook(self, func):
+        # keybind hook for autoplay keybind events
+        kb.hook(lambda e: on_key_event(e, config.target_window, func))
 
 
 

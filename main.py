@@ -9,6 +9,8 @@ import numpy as np
 import pythoncom
 import win32con
 
+import ocr
+
 from autoplay import update_interval
 from config_handler import config
 from kokoro_tts import send
@@ -58,41 +60,7 @@ is_selecting = False
 selected_areas = []
 
 
-@profiler.time_profile
-def start_ocr_process(window):
-    image = None
-    voice = config.default_voice
 
-    # only capture window if targeted window
-    if window and window.is_target_window():
-        image = window.capture()
-    else:
-        print("Not the target window")
-
-    if image is not None and image.size > 0:
-        # TODO check if window has had name and or text selections set
-
-        name, text = grab_name_and_text_selections(image)
-
-        # full window capture if name and text selections not set
-        if (name, text) == (0, 0):
-            print(f"Full window capture")
-            text = run_ocr(image)
-            print(f'text: {text}')
-        else:
-            voice = get_voice_for_name(name)
-
-        # prevent duplicate requests
-        if text and text != config.last_text:
-            print(f"TEXT SELECTED: {text}")
-            config.last_text = text
-            # sends and plays audio using local kokoro
-            print("SENDING ")
-            send(text.lower(), voice)
-        else:
-            print(f"ELSE NO TEXT")
-    else:
-        print(f"No screenshot")
 
 
 # Gets called when focused window changes
@@ -110,7 +78,7 @@ def on_focus_change(win_event_hook, event, hwnd, id_object, id_child, event_thre
         config.name_selector = config.get(name_key)
         config.text_selector = config.get(text_key)
 
-        start_ocr_process(config.target_window)
+        ocr.start_processing(config.target_window)
 
 def cleanup():
     user32.UnhookWinEvent(hook)
@@ -118,18 +86,7 @@ def cleanup():
 
 atexit.register(cleanup)
 
-def get_voice_for_name(name):
-    clean_name = name.strip().lower()
-    print("Getting voice for:", clean_name)
 
-    for character, voice in config.voice_map.items():
-        if character.lower() == clean_name:
-            print(f"Set {character}'s voice: {voice}")
-            return voice
-
-        #TODO just use VOICE_MAP.get(clean_name, default_voice)?
-
-    return config.default_voice
 
 # TODO remove? keep?
 def capture_screen():
@@ -140,49 +97,10 @@ def capture_screen():
         print(f'screenshot shape: {screenshot.shape}')
         return screenshot
 
-@profiler.time_profile
-def grab_name_and_text_selections(screenshot):
-    # if these 2 selections have been set manually with keybinds or from the config then only scan and read those portions
-    if config.name_selector and config.text_selector:
-        print("name and text SELECTED")
-        ns = config.name_selector
-        name_crop = screenshot[
-            ns["top"]: ns["top"] + ns["height"],
-            ns["left"]: ns["left"] + ns["width"]
-        ]
-
-        raw_name = run_ocr(name_crop, is_raw_array=True)
-        # print(f'name selector: {name_selector}')
-        # print(f'name_crop: {name_crop}')
-
-        # remove brackets, common artifact characters, and all surrounding whitespace
-        name = raw_name.replace('[', '').replace(']', '').strip() if raw_name else ""
-
-        print(f'name: {name}')
-
-        ts = config.text_selector
-        text_crop = screenshot[
-            ts["top"]: ts["top"] + ts["height"],
-            ts["left"]: ts["left"] + ts["width"]
-        ]
-        text = run_ocr(text_crop, is_raw_array=True)
-        print(f'text: {text}')
-
-        # save screenshots for debugging
-        timestamp = time.strftime("%Y%m%d-%H%M%S")
-        cv2.imwrite(f"screenshots/debug_name_crop_{timestamp}.png", name_crop)
-        cv2.imwrite(f"screenshots/debug_text_crop_{timestamp}.png", text_crop)
-
-        return name, text
-    else:
-        print("NO name and text selected")
-        return 0, 0 # return 0 if name and text selectors not set instead of None in case they are set but still return no value/text
 
 
-# Get text from passed image
-@profiler.time_profile
-def run_ocr(screenshot, is_raw_array=False):
-    img_array = screenshot
+
+
 
     # convert screenshot to easyOCR compatible format
     img_rgb = img_array[:, :, :3][:, :, ::-1]
@@ -276,13 +194,7 @@ def on_left_click():
 
     if config.active_window == config.target_window:
         time.sleep(0.5) # wait a bit for text to update before scanning # TODO think about this time.sleep here, thread blocking issues and such
-        start_ocr_process(config.target_window)
-
-
-
-
-# TODO move to mkb handler
-kb.hook(lambda e: on_key_event(e, config.target_window, start_ocr_process))
+        ocr.start_processing(config.target_window)
 
 
 
