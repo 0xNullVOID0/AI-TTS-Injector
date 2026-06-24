@@ -6,8 +6,8 @@ import soundfile as sf
 from config_handler import config
 from profiler import profiler
 
-# Local Kokoro endpoint
-KOKORO_URL = "http://localhost:8880/v1/audio/speech"
+
+KOKORO_URL = config.kokoro_url
 
 # makes sure audio finishes playing before starting next
 audio_lock = threading.Lock()

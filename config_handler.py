@@ -4,17 +4,25 @@ import os
 CONFIG_FILE = "config.json"
 LOCAL_CONFIG_FILE = "config.local.json"
 
-# TODO change self.json[key] to use key function
+# TODO if statements for relevant places in code
+# TODO save and keep or delete screenshots and audio depending on level
+debug_levels = {
+    1: "ALL",
+    2: "INFO",
+    3: "WARNING",
+    4: "ERROR",
+    5: "CRITICAL",
+}
 
 class _Config:
     def __init__(self, filename):
         self.filename = filename
         self.json = None
         self.load(filename)
-        self.target_window_title = self.json["TARGET_WINDOW_TITLE"]
+        self.target_window_title = self.get("TARGET_WINDOW_TITLE")
         self.target_window_path = self.get("TARGET_WINDOW_PATH")
-        self.default_voice = self.json["DEFAULT_VOICE"]
-        self.voice_map = self.json['VOICE_MAP'] # Map character names to the desired Kokoro voice codes
+        self.default_voice = self.get("DEFAULT_VOICE")
+        self.voice_map = self.get('VOICE_MAP') # map character names to the desired Kokoro voice codes
         self.last_text = None
         self.interval = self.get("INTERVAL") # autoplay interval
 
@@ -107,4 +115,3 @@ class _Config:
 
 
 config = _Config(CONFIG_FILE)
-# config.get_window_selection_keys(config.target_window_title)
