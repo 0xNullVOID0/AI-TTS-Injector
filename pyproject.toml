@@ -3,12 +3,17 @@ name = "ai-tts-injector"
 version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
+    "customtkinter>=5.2.2",
+    "fasttext-wheel>=0.9.2",
+    "kb>=0.1.8",
     "keyboard>=0.13.5",
     "mouse>=0.7.1",
     "mss>=10.2.0",
     "pygetwindow>=0.0.9",
     "pynput>=1.8.2",
     "pywin32>=312",
+    "screeninfo>=0.8.1",
     "sounddevice>=0.5.5",
     "soundfile>=0.14.0",
+    "websocket-client>=1.9.0",
 ]
