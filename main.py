@@ -285,12 +285,28 @@ def on_trigger(p):
             config.target_window_path = path
             config.update("TARGET_WINDOW_TITLE", title)
             config.update("TARGET_WINDOW_PATH", path)
+    elif p == "left":
+        # config.previous() # TODO going back like 5 audios, rewind functionality
+        pass
+    elif p == "right":
+        config.skip()
+    elif p == "down":
+        config.stop()
+    elif p == "up":
+        config.start()
     else:
+        print("ELSE KEYBIND")
         select_portion(p)
 
 def on_left_click():
     global target_window, target_window # TODO even neccesary?
     print("Left clickie")
+
+    # if config.running:
+    #     config.resume()
+    # else:
+    #     config.resume()
+
     if active_window == target_window:
         time.sleep(0.5) # wait a bit for text to update before scanning
         start_ocr_process(target_window)
@@ -301,6 +317,12 @@ mouse.on_click(on_left_click)
 kb.add_hotkey('shift+[', on_trigger, args=['name'])
 kb.add_hotkey('shift+]', on_trigger, args=['text'])
 kb.add_hotkey('ctrl+.', on_trigger, args=['set_target_window'])
+
+# every arrow key direction
+kb.add_hotkey('left', on_trigger, args=['left'])
+kb.add_hotkey('right', on_trigger, args=['right'])
+kb.add_hotkey('up', on_trigger, args=['up'])
+kb.add_hotkey('down', on_trigger, args=['down'])
 
 
 kb.hook(lambda e: on_key_event(e, target_window, start_ocr_process))

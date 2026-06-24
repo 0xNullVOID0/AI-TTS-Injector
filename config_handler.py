@@ -1,5 +1,6 @@
 import json
 import os
+import threading
 
 CONFIG_FILE = "config.json"
 LOCAL_CONFIG_FILE = "config.local.json"
@@ -37,6 +38,19 @@ class _Config:
         print(f'Config object init: {self.json}')
         print(f"voice map: {self.voice_map}")
         print(f'default_voice: {self.default_voice}')
+
+    def skip(self):
+        self.audio_stop_event.set()
+        print(f'Skipping')
+
+    # call resume instead?
+    def start(self):
+        self.running = True
+        print(f'Resuming: {self.running}')
+
+    def stop(self):
+        self.running = False
+        print(f'Stopped: {self.running}')
 
     def load_json(self, filename):
         if os.path.exists(filename):
