@@ -72,6 +72,25 @@ class _QueueHandler():
         # TODO buffer only possible if same character keeps talking, the moment name switches u gotta stop and reset, due to different voices, or only do a voice difference check not even name
         return True
 
+    # TODO finish audio class and move stuff like this to it
+    def add_smooth_fade(self, raw_audio_bytes):
+        try:
+            # load raw bytes into audio segment memory
+            audio = AudioSegment.from_file(io.BytesIO(raw_audio_bytes))
+
+            # short fade in and out to remove static/crackling at end
+            smoothed_audio = audio.fade_in(50).fade_out(50)
+
+            # export smoothed audio to RAM
+            audio_bytes = io.BytesIO()
+            smoothed_audio.export(audio_bytes, format="wav")
+
+            return audio_bytes.getvalue()
+
+        except Exception as e:
+            print(f"[AUDIO] ERROR Failed to smooth audio: {e}")
+            return raw_audio_bytes  # return original in case of error
+
     def add(self, item, item_type):
         print(f"Adding {item_type} to queue: {item}")
         if item_type == 'audio':
@@ -101,9 +120,16 @@ class _QueueHandler():
                 os.makedirs(folder, exist_ok=True)
                 file_path = os.path.join(folder, f"{self.request_counter}.wav")
 
+                audio_bytes = response.content
+
+                # add audio fade if no or low audio queue
+                if self.audio_queue.qsize() <= 2:
+                    print(f"[DOWNLOADER] adding audio fade to file: {file_path}, audio queue: {self.audio_queue.qsize()}")
+                    audio_bytes = self.add_smooth_fade(audio_bytes)
+
                 # save audio file
                 with open(file_path, "wb") as f:
-                    f.write(response.content)
+                    f.write(audio_bytes)
                 print(f"[DOWNLOADER] saved: {file_path}")
 
                 # add file path to audio queue instead of bulky response object
