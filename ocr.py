@@ -18,6 +18,8 @@ from text_processor import process_ocr
 reader = easyocr.Reader(['en'], gpu=True)
 ocr_counter = 0
 
+# TODO resize ocr image and other ocr pre and or post processing for more accurate scans
+
 
 @profiler.time_profile
 def start_processing(window):
@@ -31,19 +33,24 @@ def start_processing(window):
         print("Not the target window")
 
     if image is not None and image.size > 0:
-        # TODO check if window has had name and or text selections set
+        width, height = window.get_dimensions()
+
+        # TODO only downscale when neccesary, a check? manually set per program?
+        # TODO adjust window area selectors if downscaling,
+        # image = downscale(image, width, height)
 
 
         # get name and text from window capture, returns 0,0 if no name and text selections were set
         name, text = grab_name_and_text_selections(image)
         text = process_ocr(text)
 
-        # full window capture if name and text selections not set
+        # convert to ocr format
         image = image[:, :, :3][:, :, ::-1]
 
         # full window scan if name and text selections not set
         if (name, text) == (0, 0):
             print(f"Full window capture")
+            # image = downscale(image, width, height)
             text = run_ocr(image)
             print(f'text: {text}')
         else:
@@ -124,6 +131,10 @@ def grab_name_and_text_selections(screenshot):
             ts["top"]: ts["top"] + ts["height"],
             ts["left"]: ts["left"] + ts["width"]
         ]
+
+        # text_crop = downscale(text_crop)
+        text_crop = process_image(text_crop)
+
         text = run_ocr(text_crop, is_raw_array=True)
         print(f'text: {text}')
 
