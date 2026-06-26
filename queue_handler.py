@@ -2,10 +2,12 @@ import io
 import os
 import queue
 import threading
+
+import numpy as np
 import requests
 import sounddevice as sd
 import soundfile as sf
-import time
+from pydub import AudioSegment
 
 from config_handler import config
 from profiler import profiler
@@ -28,30 +30,47 @@ class _QueueHandler():
         self.stage = 0
 
         # set global events for easy start/stop
-        config.audio_stop_event = threading.Event()
-        config.download_stop_event = threading.Event()
+        self.audio_stop_event = threading.Event()
+        self.download_stop_event = threading.Event()
 
-    def increaseBuffer(self):
-        # TODO buffer only possible if same character keeps talking, the moment name switches u gotta stop and reset, due to different voices, or only do a voice difference check not even name
-        return True
-
-    # toggle all queues and worker threads
-    def toggle(self):
-        if config.running:
-            print('Pausing/Stopping Queue worker')
-            config.stop()
-            config.audio_stop_event.set()
-            config.download_stop_event.set()
-            sd.stop()  # force audio stop
-        else:
+    # call resume instead?
+    # start all queues and worker threads
+    def start(self):
+        # prevent duplicate toggles
+        if not config.running:
             print('Starting Queue worker')
-            config.start()
-            config.audio_stop_event.clear()
+            self.audio_stop_event.clear()
             config.download_stop_event.clear()
 
             # re set worker threads
             self.setDownloader()
             self.setAudioPlayer()
+
+        config.running = True
+        print(f'Resuming: {config.running}')
+
+    # stop all queues and worker threads
+    def stop(self):
+        # prevent duplicate toggles
+        if config.running:
+            print('Pausing/Stopping Queue worker')
+            self.audio_stop_event.set()
+            config.download_stop_event.set()
+            sd.stop()  # force audio stop
+
+        config.running = False
+        print(f'Stopped: {config.running}')
+
+    def skip(self):
+        self.audio_stop_event.set()
+        print(f'Skipping')
+
+
+
+
+    def increaseBuffer(self):
+        # TODO buffer only possible if same character keeps talking, the moment name switches u gotta stop and reset, due to different voices, or only do a voice difference check not even name
+        return True
 
     def add(self, item, item_type):
         print(f"Adding {item_type} to queue: {item}")
@@ -125,9 +144,9 @@ class _QueueHandler():
                 file_path = self.audio_queue.get(timeout=0.5)
 
                 # stop playing if thread stop event is called
-                if config.audio_stop_event.is_set():
+                if self.audio_stop_event.is_set():
                     self.audio_queue.task_done()
-                    config.audio_stop_event.clear()
+                    self.audio_stop_event.clear()
                     continue
 
                 if os.path.exists(file_path):
@@ -140,7 +159,7 @@ class _QueueHandler():
 
                     # interrupt instantly if stop event called
                     while sd.get_stream().active:
-                        if config.audio_stop_event.is_set():
+                        if self.audio_stop_event.is_set():
                             sd.stop()
                             break
                         elif not config.running: # TODO remove? redundant and not proper way to check in threads?

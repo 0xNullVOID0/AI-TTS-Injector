@@ -44,6 +44,7 @@ class _Config:
         self.snipping = False
         self.blacklist = self.get("BLACKLIST")
         self.duplicate = False
+        self.autoplay_interval = int(self.get("AUTOPLAY_INTERVAL"))
 
         # TODO move name and text selector to here
 
@@ -51,18 +52,6 @@ class _Config:
         print(f"voice map: {self.voice_map}")
         print(f'default_voice: {self.default_voice}')
 
-    def skip(self):
-        self.audio_stop_event.set()
-        print(f'Skipping')
-
-    # call resume instead?
-    def start(self):
-        self.running = True
-        print(f'Resuming: {self.running}')
-
-    def stop(self):
-        self.running = False
-        print(f'Stopped: {self.running}')
 
     def load_json(self, filename):
         if os.path.exists(filename):

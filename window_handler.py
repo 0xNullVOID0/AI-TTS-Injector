@@ -83,7 +83,7 @@ class Window:
                 image = np.array(image)
 
                 # save images for debugging
-                if config.debug or not config.duplicate:
+                if config.debug and not config.duplicate:
                     timestamp = time.strftime("%Y%m%d-%H%M%S")
                     cv2.imwrite(f"screenshots/window_{self.title}_{timestamp}.png", image)
 

@@ -1,9 +1,10 @@
 import threading
 import time
+
+import keyboard as kb
 import win32api
 import win32con
 import win32gui
-import keyboard as kb
 
 from config_handler import config
 
@@ -28,7 +29,7 @@ def autoplay_loop(window):
             if start_ocr_callback:
                 start_ocr_callback(window)
 
-            time.sleep(1.75) # todo make customizable
+            time.sleep(config.autoplay_interval) # todo make customizable
             # TODO make autoplay interval dependant on text length for appropiate response time of every function, api whatever
     print("autoplay loop stopped")
 

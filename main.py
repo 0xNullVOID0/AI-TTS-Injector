@@ -14,6 +14,7 @@ from config_handler import config
 from kokoro_api import boot_backend_api
 from mkb_handler import mkb
 from profiler import profiler
+from queue_handler import q
 from snipping_selector import SnippingSelector
 from window_handler import Window
 
@@ -132,11 +133,11 @@ def on_trigger(p):
         # config.previous() # TODO going back like 5 audios, rewind functionality
         pass
     elif p == "right":
-        config.skip()
+        q.skip()
     elif p == "down":
-        config.stop()
+        q.stop()
     elif p == "up":
-        config.start()
+        q.start()
     elif p == "name" or p == "text":
         select_portion(p)
     else:
