@@ -39,6 +39,8 @@ class _Config:
         self.kokoro_url = self.get("KOKORO_URL")
         self.debug = str(self.get("DEBUG")).lower() == "true" # convert json true/false string to actual python bool
         self.ocr_counter = 0 # TOOD move
+        self.characters = self.get("CHARACTERS")
+        self.lookup_cache = self.get("LOOKUP_CACHE")
         # self.name_selector = self.get() # add or not?
 
         # TODO move name and text selector to here

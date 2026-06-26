@@ -1,4 +1,5 @@
 import time
+
 import cv2
 import mss
 import numpy as np
@@ -6,6 +7,7 @@ import pywintypes
 import win32api
 import win32gui
 import win32process
+
 from config_handler import config
 
 
@@ -67,13 +69,17 @@ class Window:
             try:
                 image = sct.grab(self.get_capture_region())
                 print(f"window capture: {image}")
-                img_array = np.array(image) # turn into numpy array so it can be used by cv and ocr
+
+                # image = OCRImage(image)
+                image = np.array(image)
 
                 # save images for debugging
-                timestamp = time.strftime("%Y%m%d-%H%M%S")
-                cv2.imwrite(f"screenshots/window_{self.title}_{timestamp}.png", img_array)
+                if config.debug:
+                    timestamp = time.strftime("%Y%m%d-%H%M%S")
+                    cv2.imwrite(f"screenshots/window_{self.title}_{timestamp}.png", image)
 
-                return img_array
+                # img_array = process_image(img_array)
+                return image
             except Exception as e:
                 print(f"ERROR: Failed to grab window boundaries: {e}.")
 

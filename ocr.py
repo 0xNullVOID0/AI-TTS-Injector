@@ -1,11 +1,14 @@
 import time
+
 import cv2
 import easyocr
 
 from config_handler import config
+from image_processor import process_image
 from kokoro_tts import send
 from mkb_handler import mkb
 from profiler import profiler
+from text_processor import process_ocr
 
 # Verify cuda stuff for ocr debugging
 # print(f"CUDA status: {torch.cuda.is_available()}")
@@ -30,9 +33,15 @@ def start_processing(window):
     if image is not None and image.size > 0:
         # TODO check if window has had name and or text selections set
 
+
+        # get name and text from window capture, returns 0,0 if no name and text selections were set
         name, text = grab_name_and_text_selections(image)
+        text = process_ocr(text)
 
         # full window capture if name and text selections not set
+        image = image[:, :, :3][:, :, ::-1]
+
+        # full window scan if name and text selections not set
         if (name, text) == (0, 0):
             print(f"Full window capture")
             text = run_ocr(image)
@@ -55,15 +64,17 @@ def start_processing(window):
 
 # Get text from passed image
 @profiler.time_profile
-def run_ocr(screenshot, is_raw_array=False):
-    img_array = screenshot
+def run_ocr(image, is_raw_array=False):
 
+    # TODO detect img_array?
     # convert screenshot to easyOCR compatible format
-    img_rgb = img_array[:, :, :3][:, :, ::-1]
+    # if hasattr(image, 'is_rgb') and not image.is_rgb:
+    #     image = image[:, :, :3][:, :, ::-1]
+
 
     # TODO change vertical reading per program, set that setting per program, others are way more vertical text
     # set ocr with larger margin of error to prevent scanned text order being messed up by letters like q or l
-    result = reader.readtext(img_rgb, paragraph=True, x_ths=1000.0,
+    result = reader.readtext(image, paragraph=True, x_ths=1000.0,
                            y_ths=0.1 #  prevents it from grouping across different vertical lines
     )
     # result = ocr.readtext(img_rgb)
@@ -73,10 +84,9 @@ def run_ocr(screenshot, is_raw_array=False):
 
     all_text = ""
 
-    # print text of image
+    # get all text of scanned image
     for (bbox, text) in result:
         all_text += text + " "
-
 
     return all_text
 
@@ -118,9 +128,10 @@ def grab_name_and_text_selections(screenshot):
         print(f'text: {text}')
 
         # save screenshots for debugging
-        timestamp = time.strftime("%Y%m%d-%H%M%S")
-        cv2.imwrite(f"screenshots/debug_name_crop_{timestamp}.png", name_crop)
-        cv2.imwrite(f"screenshots/debug_text_crop_{timestamp}.png", text_crop)
+        if config.debug:
+            timestamp = time.strftime("%Y%m%d-%H%M%S")
+            cv2.imwrite(f"screenshots/debug_name_crop_{timestamp}.png", name_crop)
+            cv2.imwrite(f"screenshots/debug_text_crop_{timestamp}.png", text_crop)
 
         return name, text
     else:

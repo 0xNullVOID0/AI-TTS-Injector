@@ -3,29 +3,23 @@ import atexit
 import ctypes
 import time
 from ctypes import wintypes
-import cv2
+
 import mss
 import numpy as np
 import pythoncom
 import win32con
 
 import ocr
-from kokoro_api import boot_backend_api
-from autoplay import update_interval
 from config_handler import config
-from kokoro_tts import send
+from kokoro_api import boot_backend_api
 from mkb_handler import mkb
 from profiler import profiler
 from snipping_selector import SnippingSelector
 from window_handler import Window
 
-# TODO add auto play with something like capslock toggle
-# TODO add emergency skip or stop button and or toggle
-# TODO move config to its own file
 # TODO add GUI for settings, config, customization like voice selection, target window selection
 # TODO live translation?
 # TODO pipeline CI/CD stuff
-# TODO add check for kokoro api available/running, show in gui too
 # TODO better ocr post processing and other cleaning
 # TODO OCR post processing, correct size? downscaling, anti aliasing? different settings
 # TODO add some sort of dictionary check and others checking for warning signs of incorrect text then send to another AI model for verification, validation/fixing
@@ -40,6 +34,7 @@ from window_handler import Window
 EVENT_WINDOW_FOCUS_CHANGED = win32con.EVENT_OBJECT_FOCUS
 
 
+# TODO move all to window_handler?
 # Load the Windows DLL for SetWinEventHook
 user32 = ctypes.windll.user32
 hook = None
@@ -55,12 +50,6 @@ WinEventProcess = ctypes.WINFUNCTYPE(
     wintypes.DWORD,
     wintypes.DWORD
 )
-
-is_selecting = False
-selected_areas = []
-
-
-
 
 
 # Gets called when focused window changes
@@ -84,8 +73,8 @@ def cleanup():
     user32.UnhookWinEvent(hook)
     print("Hook removed cleanly.")
 
+# TODO are they being unset cleanly?
 atexit.register(cleanup)
-
 
 
 # TODO remove? keep?
@@ -97,14 +86,8 @@ def capture_screen():
         print(f'screenshot shape: {screenshot.shape}')
         return screenshot
 
-
-
-
+# get the selected area from user
 def select_portion(p=""):
-    # TODO make it so that a window which gets snipped on automatically becomes the target window and gets saved and all other proper actions so its properly dynamic
-    # get the selected area from user
-
-
     # TODO what if no target window? also make snipping a window the new config.target_window?
     if config.target_window:
         print("select portion IF target window")
@@ -125,14 +108,10 @@ def select_portion(p=""):
                 config.update(text_key, region)
             else:
                 print("ELSE KEYBIND")
-                # add selected area to array
-                selected_areas.append(region) #TODO make relative to window size and or position? dont bother? too much work that a simple reselect would fix anyway
-                print(f'selected selection: {selected_areas}')
     else:
-        print("select portion ELSE")
+        print("Target window not set")
 
 
-# TODO just make all into on_trigger(type)? instead of get name and text?
 def on_trigger(p):
     print(f"Keybind pressed: {p}")
     if p == "set_target_window":
@@ -157,20 +136,14 @@ def on_trigger(p):
     elif p == "name" or p == "text":
         select_portion(p)
     else:
-        print("ELSE KEYBIND")
+        print(f"ELSE KEYBIND")
 
 def on_left_click():
     print("Left clickie")
 
-    # if config.running:
-    #     config.resume()
-    # else:
-    #     config.resume()
-
-    if config.active_window == config.target_window:
+    if config.running and config.active_window == config.target_window:
         time.sleep(0.5) # wait a bit for text to update before scanning # TODO think about this time.sleep here, thread blocking issues and such
         ocr.start_processing(config.target_window)
-
 
 
 @profiler.time_profile
@@ -211,10 +184,9 @@ def run():
             atexit.register(api_process.terminate)
 
     try:
-        # keep script running and listens for Windows events
-
+        # keep script
         while True:
-            # pump Windows messages manually without locking the thread
+            # pump/listen to Windows messages manually without locking the thread
             pythoncom.PumpWaitingMessages()
             time.sleep(0.05)
     except KeyboardInterrupt:
