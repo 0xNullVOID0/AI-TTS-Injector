@@ -9,6 +9,7 @@ import sounddevice as sd
 import soundfile as sf
 from pydub import AudioSegment
 
+import ocr
 from config_handler import config
 from profiler import profiler
 
@@ -32,6 +33,7 @@ class _QueueHandler():
         # set global events for easy start/stop
         self.audio_stop_event = threading.Event()
         self.download_stop_event = threading.Event()
+        self.ocr_worker_stop_event = threading.Event()
 
     # call resume instead?
     # start all queues and worker threads
@@ -41,11 +43,13 @@ class _QueueHandler():
         if not config.running:
             print('Starting Queue worker')
             self.audio_stop_event.clear()
-            config.download_stop_event.clear()
+            self.download_stop_event.clear()
+            self.ocr_worker_stop_event.clear()
 
             # re set worker threads
             self.setDownloader()
             self.setAudioPlayer()
+            self.setOcrWorker()
 
         config.running = True
         print(f'Resuming: {config.running}')
@@ -57,7 +61,8 @@ class _QueueHandler():
         if config.running:
             print('Pausing/Stopping Queue worker')
             self.audio_stop_event.set()
-            config.download_stop_event.set()
+            self.download_stop_event.set()
+            self.ocr_worker_stop_event.set()
             sd.stop()  # force audio stop
 
         config.running = False
@@ -157,12 +162,26 @@ class _QueueHandler():
                 download_task = self.download_queue.get(timeout=0.5) # TODO timeout what to set it to
 
                 # stop downloading if thread stop event is called
-                if config.download_stop_event.is_set():
+                if self.download_stop_event.is_set():
                     self.download_queue.task_done()
-                    # config.download_stop_event.clear() # TODO add or remove?
                     continue
 
                 self.dl(download_task)
+            except queue.Empty:
+                continue
+
+    @profiler.time_profile
+    def process_ocr_queue(self):
+        while config.running:
+            try:
+                # small timeout to prevent cpu and queue spamming
+                ocr_task = self.ocr_queue.get(timeout=0.1) # TODO timeout what to set it to
+
+                if self.ocr_worker_stop_event.is_set():
+                    self.ocr_queue.task_done()
+                    continue
+
+                ocr.run_ocr(ocr_task, False)
             except queue.Empty:
                 continue
 
@@ -215,6 +234,12 @@ class _QueueHandler():
         if not self.audio_player or not self.audio_player.is_alive():
             self.audio_player = threading.Thread(target=self.play_audio, daemon=True)
             self.audio_player.start()
+
+    def setOcrWorker(self):
+        if not self.ocr_worker or not self.ocr_worker.is_alive():
+            # TODO target?
+            self.ocr_worker = threading.Thread(target=self.process_ocr_queue, daemon=True)
+            self.ocr_worker.start()
 
 
 # init global singleton instance

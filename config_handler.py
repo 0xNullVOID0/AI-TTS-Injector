@@ -1,6 +1,5 @@
 import json
 import os
-import threading
 
 CONFIG_FILE = "config.json"
 LOCAL_CONFIG_FILE = "config.local.json"
@@ -34,8 +33,6 @@ class _Config:
         self.interval = self.get("INTERVAL") # autoplay interval
         self.running = True
         self.next = False
-        self.audio_stop_event = threading.Event()
-        self.download_stop_event = threading.Event()
         self.kokoro_url = self.get("KOKORO_URL")
         self.debug = str(self.get("DEBUG")).lower() == "true" # convert json true/false string to actual python bool
         self.ocr_counter = 0 # TOOD move
