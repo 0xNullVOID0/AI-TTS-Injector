@@ -37,7 +37,7 @@ class _Config:
         self.audio_stop_event = threading.Event()
         self.download_stop_event = threading.Event()
         self.kokoro_url = self.get("KOKORO_URL")
-        self.debug = self.get("DEBUG")
+        self.debug = str(self.get("DEBUG")).lower() == "true" # convert json true/false string to actual python bool
         self.ocr_counter = 0 # TOOD move
         # self.name_selector = self.get() # add or not?
 

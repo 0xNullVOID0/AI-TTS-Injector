@@ -43,6 +43,7 @@ def json_serial(obj):
 data = '{"name": "Joker", "active": true}'
 print(is_json(data))
 
+
 # TODO move to own file?
 # Global APIClient class for cleaner, more readable and reusable code
 class APIClient:
@@ -54,7 +55,7 @@ class APIClient:
 
     def api(self, route="/", payload=None, req_type=None):
         url = f"{self.BASE_URL}{route}"  # TODO improve
-        print(f"Calling: {url}")
+        print(f"[APIClient] Calling: {url}")
 
         response = None
 
@@ -62,16 +63,7 @@ class APIClient:
             if is_json(payload):
                 response = requests.post(url, json=payload, headers=self.HEADERS, timeout=120)
             else:
-                # response = requests.post(url, headers=self.HEADERS, timeout=120)
-                print(f"ERROR: payload {payload} failed, NOT (proper?) JSON") # TODO redundant?
-                response = Exception("ERROR: payload {payload} failed, NOT (proper?) JSON")
-            # except Exception as e:
-            #     print(f"ERROR: request {url} failed")
-
-            # if is_json(payload):
-            #     response = requests.post(url, json=payload, headers=self.HEADERS, timeout=120)
-            # else:
-            #     response = requests.post(url, payload=payload, headers=self.HEADERS, timeout=120)
+                print(f"[APIClient] ERROR: payload {payload} failed, NOT (proper?) JSON")
         elif req_type == "GET":
             response = requests.get(url, headers=self.HEADERS, timeout=120)
         else:
@@ -80,8 +72,6 @@ class APIClient:
         if response.status_code == 200:
             print(response)
         else:
-            print(f"ERROR: request {url} failed")
-            # Exception("ERROR: payload {payload} failed, NOT (proper?) JSON")
+            print(f"[APIClient] ERROR: request {url} failed")
 
         return response
-

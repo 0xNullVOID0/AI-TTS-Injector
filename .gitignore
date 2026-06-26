@@ -1,3 +1,5 @@
 /config.local.json
 /readme.md
 /assets
+*.log
+*.json

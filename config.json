@@ -4,12 +4,18 @@
   "TARGET_WINDOW_TITLE": "Settings",
   "INTERVAL": 1.25,
   "DEFAULT_VOICE": "af_heart",
-  "KOKORO_URL": "http://localhost:42880/v1/audio/speech",
+  "KOKORO_FOLDER": "C:\\Users\\fresh\\Kokoro-FastAPI",
+  "KOKORO_START_SCRIPT": "start-gpu.ps1",
+  "KOKORO_HOST": "http://localhost",
+  "KOKORO_PORT": 8880,
+  "KOKORO_URL": "http://localhost:8880/v1/audio/speech",
   "VOICE_MAP": {
     "Narrator": "af_heart"
   },
+  "CHARACTERS": [],
   "KEYBINDS": {
       "AUTOPLAY": "scroll lock",
       "SET_TARGET_WINDOW": "ctrl+home"
-  }
+  },
+  "LOOKUP_CACHE": {}
 }
