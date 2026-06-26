@@ -10,7 +10,7 @@ import pythoncom
 import win32con
 
 import ocr
-
+from kokoro_api import boot_backend_api
 from autoplay import update_interval
 from config_handler import config
 from kokoro_tts import send
@@ -99,31 +99,6 @@ def capture_screen():
 
 
 
-
-
-
-    # convert screenshot to easyOCR compatible format
-    img_rgb = img_array[:, :, :3][:, :, ::-1]
-
-
-    # set ocr with larger margin of error to prevent scanned text order being messed up by letters like q or l
-    result = ocr.readtext(img_rgb, paragraph=True, x_ths=1000.0,
-                           y_ths=0.1 #  prevents it from grouping across different vertical lines
-    )
-    # result = ocr.readtext(img_rgb)
-
-    config.ocr_counter += 1 # TODO also do a calculation with -duplicate text so it stays accurate with audio_played
-    print(f"ocr count: {config.ocr_counter}")
-
-    all_text = ""
-
-    # print text of image
-    for (bbox, text) in result:
-        all_text += text + " "
-
- # TODO change vertical reading per program, set that setting per program, others are way more vertical text
-
-    return all_text
 
 def select_portion(p=""):
     # TODO make it so that a window which gets snipped on automatically becomes the target window and gets saved and all other proper actions so its properly dynamic
@@ -221,9 +196,27 @@ def run():
     mkb.set_keybinds(on_trigger)
     mkb.set_mousebinds(on_left_click)
 
+    print(f"DEBUG mode: {config.debug}")
+
+    api_process = boot_backend_api()
+
+    if api_process:
+        # True: Leaves Kokoro running when main.py stops
+        # False: Kills Kokoro automatically when main.py closes
+        if config.debug:
+            print("[Debug Mode] Active: Kokoro API will persist in the background after exit")
+        else:
+            print("[Production Mode] Active: Tying Kokoro API to main script stop signals for auto termination")
+            # only register the kill command in production mode
+            atexit.register(api_process.terminate)
+
     try:
         # keep script running and listens for Windows events
-        pythoncom.PumpMessages()
+
+        while True:
+            # pump Windows messages manually without locking the thread
+            pythoncom.PumpWaitingMessages()
+            time.sleep(0.05)
     except KeyboardInterrupt:
         return
 
