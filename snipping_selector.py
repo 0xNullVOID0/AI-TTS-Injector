@@ -1,5 +1,8 @@
 import tkinter as tk
 
+from config_handler import config
+
+
 # TODO fix snipping being buggy for fullscreen programs? or other issues
 
 # Creates a fullscreen overlay that allows user to select an area on screen they want scanned
@@ -59,5 +62,8 @@ class SnippingSelector:
         self.root.destroy()
 
     def get_selection(self):
+        config.snipping = True
         self.root.mainloop()
+
+        config.snipping = False
         return self.coords

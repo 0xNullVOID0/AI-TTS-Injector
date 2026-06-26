@@ -41,8 +41,9 @@ class _Config:
         self.ocr_counter = 0 # TOOD move
         self.characters = self.get("CHARACTERS")
         self.lookup_cache = self.get("LOOKUP_CACHE")
-        # self.name_selector = self.get() # add or not?
+        self.snipping = False
         self.blacklist = self.get("BLACKLIST")
+        self.duplicate = False
 
         # TODO move name and text selector to here
 

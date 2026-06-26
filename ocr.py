@@ -60,11 +60,14 @@ def start_processing(window):
         if text and text != config.last_text:
             print(f"TEXT SELECTED: {text}")
             config.last_text = text
+            config.duplicate = False
             # sends and plays audio using local kokoro
             print("SENDING ")
             send(text.lower(), voice)
         else:
-            print(f"ELSE NO TEXT")
+            print(f"DUPLICATE TEXT, SKIPPING")
+            config.duplicate = True
+            # TODO allow cycling between selections, as in first scan is selection 1, scan 2 selec 2 and loop, repeat
     else:
         print(f"No screenshot")
 
@@ -139,7 +142,7 @@ def grab_name_and_text_selections(screenshot):
         print(f'text: {text}')
 
         # save screenshots for debugging
-        if config.debug:
+        if config.debug or not config.duplicate:
             timestamp = time.strftime("%Y%m%d-%H%M%S")
             cv2.imwrite(f"screenshots/debug_name_crop_{timestamp}.png", name_crop)
             cv2.imwrite(f"screenshots/debug_text_crop_{timestamp}.png", text_crop)
