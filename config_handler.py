@@ -42,6 +42,7 @@ class _Config:
         self.characters = self.get("CHARACTERS")
         self.lookup_cache = self.get("LOOKUP_CACHE")
         # self.name_selector = self.get() # add or not?
+        self.blacklist = self.get("BLACKLIST")
 
         # TODO move name and text selector to here
 

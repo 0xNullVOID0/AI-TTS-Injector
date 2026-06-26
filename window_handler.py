@@ -17,10 +17,19 @@ class Window:
         self.title = win32gui.GetWindowText(hwnd)
         self.pid = None
         self.path = self.get_process_path()
+        self.blacklisted = False
         print(f'Window object init: {self.title}')
 
+    def is_blacklisted(self):
+        if self.path and any(word in self.path for word in config.blacklist):
+            print("[Window] Program on blacklist, skipping")
+            self.blacklisted = True
+        return self.blacklisted
 
     def is_target_window(self):
+        if self.is_blacklisted():
+            return
+
         # TODO test programs with multiple windows, instances, popups whatever
         # check both process path and title since title alone is too unreliable
         ctwT = config.target_window_title
@@ -74,7 +83,7 @@ class Window:
                 image = np.array(image)
 
                 # save images for debugging
-                if config.debug:
+                if config.debug or not config.duplicate:
                     timestamp = time.strftime("%Y%m%d-%H%M%S")
                     cv2.imwrite(f"screenshots/window_{self.title}_{timestamp}.png", image)
 

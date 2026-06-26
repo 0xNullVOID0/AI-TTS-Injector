@@ -13,6 +13,7 @@
     "Narrator": "af_heart"
   },
   "CHARACTERS": [],
+  "BLACKLIST": ["JetBrains"],
   "KEYBINDS": {
       "AUTOPLAY": "scroll lock",
       "SET_TARGET_WINDOW": "ctrl+home"

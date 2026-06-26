@@ -119,6 +119,10 @@ def on_trigger(p):
             title = config.active_window.title
             path = config.active_window.get_process_path()
 
+            # stop if on blacklist
+            if config.active_window.is_blacklisted():
+                return
+
             # TODO look at this
             config.target_window_title = title
             config.target_window_path = path
