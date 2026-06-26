@@ -146,8 +146,9 @@ def on_left_click():
     print("Left clickie")
 
     if config.running and config.active_window == config.target_window:
-        time.sleep(0.5) # wait a bit for text to update before scanning # TODO think about this time.sleep here, thread blocking issues and such
-        ocr.start_processing(config.target_window)
+        if not config.snipping:
+            time.sleep(0.5) # wait a bit for text to update before scanning # TODO think about this time.sleep here, thread blocking issues and such
+            ocr.start_processing(config.target_window)
 
 
 @profiler.time_profile

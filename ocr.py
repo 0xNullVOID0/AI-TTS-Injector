@@ -51,7 +51,7 @@ def start_processing(window):
         if (name, text) == (0, 0):
             print(f"Full window capture")
             # image = downscale(image, width, height)
-            text = run_ocr(image)
+            text = run_ocr(image, True)
             print(f'text: {text}')
         else:
             voice = get_voice_for_name(name)
@@ -74,12 +74,17 @@ def start_processing(window):
 
 # Get text from passed image
 @profiler.time_profile
-def run_ocr(image, is_raw_array=False):
+def run_ocr(image, is_rgb=False):
 
     # TODO detect img_array?
     # convert screenshot to easyOCR compatible format
     # if hasattr(image, 'is_rgb') and not image.is_rgb:
     #     image = image[:, :, :3][:, :, ::-1]
+    if not is_rgb:
+        image = image[:, :, :3][:, :, ::-1]
+
+
+
 
 
     # TODO change vertical reading per program, set that setting per program, others are way more vertical text
@@ -120,7 +125,8 @@ def grab_name_and_text_selections(screenshot):
             ns["left"]: ns["left"] + ns["width"]
         ]
 
-        raw_name = run_ocr(name_crop, is_raw_array=True)
+        raw_name = run_ocr(name_crop, True)
+
         # print(f'name selector: {name_selector}')
         # print(f'name_crop: {name_crop}')
 
@@ -138,7 +144,7 @@ def grab_name_and_text_selections(screenshot):
         # text_crop = downscale(text_crop)
         text_crop = process_image(text_crop)
 
-        text = run_ocr(text_crop, is_raw_array=True)
+        text = run_ocr(text_crop, True)
         print(f'text: {text}')
 
         # save screenshots for debugging
