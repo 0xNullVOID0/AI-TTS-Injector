@@ -3,9 +3,11 @@ import time
 import cv2
 
 from config_handler import config
+from profiler import profiler
 
 
 # Downscales images for more accurate OCR due to font sizes and such
+@profiler.time_profile
 def downscale(image):
     # image = image.copy()
     height, width = image.shape[:2]
@@ -42,6 +44,7 @@ def downscale(image):
     return image
 
 # Strip all color to remove image noise and conflicting backgrounds
+@profiler.time_profile
 def convert_to_black_and_white(image):
     # image = image.copy()
     # convert to grayscale
@@ -61,6 +64,7 @@ def convert_to_black_and_white(image):
 
     return img_rgb
 
+@profiler.time_profile
 def process_image(image):
     image = downscale(image)
     # image = convert_to_black_and_white(image)

@@ -35,6 +35,7 @@ class _QueueHandler():
 
     # call resume instead?
     # start all queues and worker threads
+    @profiler.time_profile
     def start(self):
         # prevent duplicate toggles
         if not config.running:
@@ -50,6 +51,7 @@ class _QueueHandler():
         print(f'Resuming: {config.running}')
 
     # stop all queues and worker threads
+    @profiler.time_profile
     def stop(self):
         # prevent duplicate toggles
         if config.running:
@@ -61,6 +63,7 @@ class _QueueHandler():
         config.running = False
         print(f'Stopped: {config.running}')
 
+    @profiler.time_profile
     def skip(self):
         self.audio_stop_event.set()
         print(f'Skipping')
@@ -73,6 +76,7 @@ class _QueueHandler():
         return True
 
     # TODO finish audio class and move stuff like this to it
+    @profiler.time_profile
     def add_smooth_fade(self, raw_audio_bytes):
         try:
             # load raw bytes into audio segment memory

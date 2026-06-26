@@ -95,6 +95,7 @@ def run_ocr(image, is_rgb=False):
     # result = ocr.readtext(img_rgb)
 
     config.ocr_counter += 1 # TODO also do a calculation with -duplicate text so it stays accurate with audio_played
+    # TODO differentiate between snipped ocrs and total all calls even with notihng found or duplicates, total ocr count and a "real" ones count
     print(f"ocr count: {config.ocr_counter}")
 
     all_text = ""
@@ -148,7 +149,7 @@ def grab_name_and_text_selections(screenshot):
         print(f'text: {text}')
 
         # save screenshots for debugging
-        if config.debug or not config.duplicate:
+        if config.debug and not config.duplicate:
             timestamp = time.strftime("%Y%m%d-%H%M%S")
             cv2.imwrite(f"screenshots/debug_name_crop_{timestamp}.png", name_crop)
             cv2.imwrite(f"screenshots/debug_text_crop_{timestamp}.png", text_crop)

@@ -1,6 +1,7 @@
 import tkinter as tk
 
 from config_handler import config
+from profiler import profiler
 
 
 # TODO fix snipping being buggy for fullscreen programs? or other issues
@@ -61,6 +62,7 @@ class SnippingSelector:
         }
         self.root.destroy()
 
+    @profiler.time_profile
     def get_selection(self):
         config.snipping = True
         self.root.mainloop()

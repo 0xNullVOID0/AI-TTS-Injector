@@ -1,14 +1,12 @@
 import os
-import subprocess
 import socket
-import time
+import subprocess
 import sys
-import atexit
+import time
 from urllib.parse import urlparse
 
 from config_handler import config
 from profiler import profiler
-
 
 API_HOST = config.get("KOKORO_HOST")
 API_PORT = config.get("KOKORO_PORT")
@@ -120,6 +118,8 @@ def boot_backend_api():
                 print("[Kokoro API] successfully connected")
                 return process
             time.sleep(1)
+
+        # TODO these prints dont end up in this projects python due to decoupling
 
         print("[Kokoro API] Error: API took too long to respond")
         process.terminate()

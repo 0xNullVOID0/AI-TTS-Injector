@@ -54,6 +54,7 @@ WinEventProcess = ctypes.WINFUNCTYPE(
 
 
 # Gets called when focused window changes
+@profiler.time_profile
 def on_focus_change(win_event_hook, event, hwnd, id_object, id_child, event_thread, event_time):
     # set active window so its globally available
     config.active_window = Window(hwnd)
@@ -70,6 +71,7 @@ def on_focus_change(win_event_hook, event, hwnd, id_object, id_child, event_thre
 
         ocr.start_processing(config.target_window)
 
+@profiler.time_profile
 def cleanup():
     user32.UnhookWinEvent(hook)
     print("Hook removed cleanly.")
@@ -79,6 +81,7 @@ atexit.register(cleanup)
 
 
 # TODO remove? keep?
+@profiler.time_profile
 def capture_screen():
     with mss.MSS() as sct:
         # grab whole screen
@@ -88,6 +91,7 @@ def capture_screen():
         return screenshot
 
 # get the selected area from user
+@profiler.time_profile
 def select_portion(p=""):
     # TODO what if no target window? also make snipping a window the new config.target_window?
     if config.target_window:
@@ -113,6 +117,7 @@ def select_portion(p=""):
         print("Target window not set")
 
 
+@profiler.time_profile
 def on_trigger(p):
     print(f"Keybind pressed: {p}")
     if p == "set_target_window":
@@ -143,6 +148,7 @@ def on_trigger(p):
     else:
         print(f"ELSE KEYBIND")
 
+@profiler.time_profile
 def on_left_click():
     print("Left clickie")
 

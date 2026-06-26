@@ -9,6 +9,7 @@ import win32gui
 import win32process
 
 from config_handler import config
+from profiler import profiler
 
 
 class Window:
@@ -25,6 +26,7 @@ class Window:
             print("[Window] Program on blacklist, skipping")
             self.blacklisted = True
         return self.blacklisted
+
 
     def is_target_window(self):
         if self.is_blacklisted():
@@ -73,6 +75,7 @@ class Window:
         print(f'window region: {region}')
         return region
 
+    @profiler.time_profile
     def capture(self):
         with mss.MSS() as sct:
             try:
@@ -93,6 +96,7 @@ class Window:
                 print(f"ERROR: Failed to grab window boundaries: {e}.")
 
     # use process path instead of window name for more reliability
+    @profiler.time_profile
     def get_process_path(self):
         try:
             # use PID and handle to get process path

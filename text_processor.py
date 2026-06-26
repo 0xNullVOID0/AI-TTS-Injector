@@ -1,8 +1,17 @@
+import difflib
 import re
+import string
+
+import enchant
 
 from config_handler import config
+from profiler import profiler
+
+lookup_cache = config.lookup_cache
 
 
+
+@profiler.time_profile
 def clean_text(text):
     # replace curly/smart apostrophes with standard ones
     text = text.replace("’", "'").replace("‘", "'")
@@ -13,6 +22,7 @@ def clean_text(text):
     return text.strip()
 
 
+@profiler.time_profile
 def fix_ocr(text):
     # ocr often mistakes . for : and , for ; messing up speed of talking and pauses
     text = text.replace(":", ".").replace(";", ",").replace("_", "...")
@@ -43,6 +53,7 @@ def fix_ocr(text):
     return " ".join(corrected_words)
 
 
+@profiler.time_profile
 def process_ocr(text):
     # TODO combine all text processing and only perform appropiate text for tts models which require it, dont do it for tts models which can actually properly pronounce such "speech"
     text = fix_ocr(text)
