@@ -18,10 +18,36 @@ KOKORO_START_SCRIPT = config.get(f"KOKORO_START_SCRIPT")
 # the terminal command to start the API and load the model
 START_COMMAND = [sys.executable, "-m", "uvicorn", "kokoro_fastapi.main:app", f"--port={API_PORT}"]
 
+# Makes sure host and port are correct and properly formatted
+def clean_host(host, port):
+    host = str(host)
+
+    # parse url properly
+    if "://" in host:
+        parsed = urlparse(host)
+        host = parsed.hostname or "127.0.0.1"
+        if parsed.port:
+            port = parsed.port
+
+    # change common placeholders since they can cause errors unlike 127.0.0.1
+    if host in ["localhost", "http://localhost", "0.0.0.0"]:
+        host = "127.0.0.1"
+
+    # make sure port is int instead of string
+    try:
+        port = int(port)
+    except (TypeError, ValueError):
+        port = 8880  # fallback to Kokoro's default if parsing breaks
+
+    return host, port
+
+
 @profiler.time_profile
 # Check if port is already open
 def is_api_running(host, port):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        host, port = clean_host(host, port)
+
         # network connection check
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.settimeout(0.5)
@@ -102,9 +128,3 @@ def boot_backend_api():
     except FileNotFoundError:
         print("[Kokoro API] Error: Couldn't find Kokoro script")
         sys.exit(1)
-
-
-# api_process = boot_backend_api()
-#
-# if api_process:
-#     atexit.register(api_process.terminate)
