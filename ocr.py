@@ -1,5 +1,4 @@
 import time
-
 import cv2
 import easyocr
 
@@ -11,6 +10,8 @@ from profiler import profiler
 from text_processor import process_ocr
 
 # Verify cuda stuff for ocr debugging
+# import os
+# import torch
 # print(f"CUDA status: {torch.cuda.is_available()}")
 # print(f"DEBUG: Torch sees GPU: {torch.cuda.is_available()}")
 # print(f"DEBUG: Torch device name: {torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'None'}")
@@ -25,6 +26,8 @@ ocr_counter = 0
 def start_processing(window):
     image = None
     voice = config.default_voice
+
+    # TODO STORE IMAGE FIRST INSTEAD OF JUST RAW DATA before processing with ocr
 
     # only capture window if targeted window
     if window and window.is_target_window():
@@ -53,6 +56,9 @@ def start_processing(window):
             # image = downscale(image, width, height)
             text = run_ocr(image, True)
             print(f'text: {text}')
+
+
+        # TODO especially if getting spammed similar requests start checking hard and confirm if something wrong is going on then cooldown till selection change or other update or long cooldown, more intense duplicate checks and such
         else:
             voice = get_voice_for_name(name)
 
@@ -75,16 +81,9 @@ def start_processing(window):
 # Get text from passed image
 @profiler.time_profile
 def run_ocr(image, is_rgb=False):
-
-    # TODO detect img_array?
     # convert screenshot to easyOCR compatible format
-    # if hasattr(image, 'is_rgb') and not image.is_rgb:
-    #     image = image[:, :, :3][:, :, ::-1]
     if not is_rgb:
         image = image[:, :, :3][:, :, ::-1]
-
-
-
 
 
     # TODO change vertical reading per program, set that setting per program, others are way more vertical text

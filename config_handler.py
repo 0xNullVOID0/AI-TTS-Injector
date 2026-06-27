@@ -16,6 +16,9 @@ debug_levels = {
     5: "CRITICAL",
 }
 
+# TODO make into actual proper singleton
+# TODO variable event hooks
+
 # TODO for everything that can just be stored and retrieved easily from json just use config.get() for them instead of object properties?
 
 class _Config:

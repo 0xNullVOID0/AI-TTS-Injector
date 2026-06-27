@@ -8,7 +8,6 @@ import win32gui
 
 from config_handler import config
 
-autoplay_on = False
 start_ocr_callback = None
 
 # TODO add counters here
@@ -19,10 +18,8 @@ def update_interval(i):
     print(f"interval updated to: {i}")
 
 def autoplay_loop(window):
-    global autoplay_on
-
     print("autoplay loop started")
-    while autoplay_on:
+    while config.autoplay_on:
         if window:
             send_background_click(window)
 
@@ -36,7 +33,7 @@ def autoplay_loop(window):
 
 # TODO move on key event to seperate keyboard handler file? and just pass function for capslock to this
 def on_key_event(event, target_window, ocr_func):
-    global autoplay_on, start_ocr_callback
+    global start_ocr_callback
 
     # get ocr function from main file
     start_ocr_callback = ocr_func
@@ -45,14 +42,14 @@ def on_key_event(event, target_window, ocr_func):
         scroll_lock_on = win32api.GetKeyState(0x91) & 1 # scroll lock key code
 
         if scroll_lock_on and target_window:
-            if not autoplay_on:
-                autoplay_on = True
+            if not config.autoplay_on:
+                config.autoplay_on = True
                 # spawn the auto clicker loop in a background thread
-                autoplay_worker = threading.Thread(target=autoplay_loop,args=[target_window],daemon=True)
+                autoplay_worker = threading.Thread(target=autoplay_loop, args=[target_window], daemon=True)
                 autoplay_worker.start()
 
         elif not scroll_lock_on:
-          autoplay_on = False
+          config.autoplay_on = False
 
 def send_background_click(window):
     try:

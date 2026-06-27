@@ -102,13 +102,21 @@ def boot_backend_api():
         else:
             print("PRODUCTION MODE: process attached normally and thus linked to normal main.py stop signals")
 
+
+        # hide kokoro output from python terminal
+        stdout = subprocess.DEVNULL
+        stderr = subprocess.DEVNULL
+
+        # stdout = None
+        # stderr = None
+
         # launch with the isolated environment
         process = subprocess.Popen(
             START_COMMAND,
             cwd=KOKORO_FOLDER,
             env=clean_env,
-            stdout=None,
-            stderr=None,
+            stdout=stdout,
+            stderr=stderr,
             creationflags = disconnect_child_from_parent_process
         )
 

@@ -27,7 +27,7 @@ def fix_ocr(text):
     # ocr often mistakes . for : and , for ; messing up speed of talking and pauses
     text = text.replace(":", ".").replace(";", ",").replace("_", "...")
 
-    # manually add ' when it doesn't get scanned correctly
+    # manually add ' and other adjustments when it doesn't get scanned correctly
     corrections = {
         "youre": "you're",
         "dont": "don't",
@@ -36,13 +36,25 @@ def fix_ocr(text):
         "hes": "he's",
         "shes": "she's",
         "ive": "i've",
-        "IIl": "I'll",
-    }
+        "ill": "I'll",
+        "II": "I'll",
+        "mel": "me!", # e and ! conflicts
+        "upl": "up!",
+        "rulesl": "rules!",
+        "we'l": "we'll",
+        "cantl": "can't",
+        "showyou": "show you",
+    } # TODO stop checking for skip or stop/play keybinds if window not focused or just if in blacklisted program
+
+
+    # TODO lookup cache as first step for everything? or only after this one or something
+    # TODO words with weird l's add end, replace with ! through dict check? from the ones outside this corrections list and then added to lookup cache?
+    # TODO add check for I being combined with words like Iunderstand, if starts with I and isnt i'll, i'd or other correct uses for it then add space between that and word, split it
 
     # load corrections from config instead if set
-    if "TEXT_CORRECTIONS" in config.json:
+    if config.text_corrections:
         # TODO for character names strip all , . : and whatever else after it to prevent name pronounce alteration setting conflicts from config
-        corrections = config["TEXT_CORRECTIONS"]
+        corrections = config.text_corrections
 
     # print("text corrections")
     # print(corrections)
