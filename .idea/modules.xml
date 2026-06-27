@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/AI-TTS-Injector.iml" filepath="$PROJECT_DIR$/.idea/AI-TTS-Injector.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/ai-tts-injector.iml" filepath="$PROJECT_DIR$/.idea/ai-tts-injector.iml" />
     </modules>
   </component>
 </project>
