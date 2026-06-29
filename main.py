@@ -99,6 +99,12 @@ def on_trigger(p):
             config.target_window_path = path
             config.update("TARGET_WINDOW_TITLE", title)
             config.update("TARGET_WINDOW_PATH", path)
+
+            # force focus change event so proper steps for a focused target window get taken
+            Window.on_focus_change(None, EVENT_SYSTEM_FOREGROUND, config.active_window.hwnd, 0, 0, 0, 0)
+
+            # # TODO fix update right away,
+            # on_left_click()
     elif p == "left":
         # config.previous() # TODO going back like 5 audios, rewind functionality
         pass
@@ -108,6 +114,11 @@ def on_trigger(p):
         q.stop()
     elif p == "up":
         q.start()
+    elif p == "start_ocr":
+        config.ocr = True
+        q.start()
+    elif p == "disable_ocr":
+        q.stop_ocr()
     elif p == "name" or p == "text":
         select_portion(p)
     else:
@@ -150,6 +161,10 @@ def run():
     print(f"DEBUG mode: {config.debug}")
 
     api_process = boot_backend_api()
+
+    # bind start/stop functions from queue handler to config
+    config.on_start = q.start
+    config.on_stop = q.stop
 
     if api_process:
         # True: Leaves Kokoro running when main.py stops

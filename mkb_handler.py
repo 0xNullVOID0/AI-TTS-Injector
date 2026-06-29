@@ -33,6 +33,8 @@ class _MkbHandler:
         kb.add_hotkey('up', trigger, args=['up'])
         kb.add_hotkey('down', trigger, args=['down'])
 
+        kb.add_hotkey('shift+up', trigger, args=['start_ocr'])
+
     def set_mousebinds(self, trigger):
         mouse.on_click(trigger)
 

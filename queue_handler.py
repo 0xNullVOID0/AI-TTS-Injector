@@ -42,17 +42,26 @@ class _QueueHandler():
         # prevent duplicate toggles
         if not config.running:
             print('Starting Queue worker')
+            # TODO turn both more into components that can be enabled/disabled too?
             self.audio_stop_event.clear()
             self.download_stop_event.clear()
-            self.ocr_worker_stop_event.clear()
 
             # re set worker threads
             self.setDownloader()
             self.setAudioPlayer()
-            self.setOcrWorker()
 
-        config.running = True
-        print(f'Resuming: {config.running}')
+            config.running = True
+            print(f'Resuming: {config.running}')
+
+        # only start OCR if component enabled
+        if config.ocr:
+            self.setOcrWorker()
+            self.ocr_worker_stop_event.clear()
+        else:
+            print("NOT starting OCR since its disabled")
+
+
+
 
     # stop all queues and worker threads
     @profiler.time_profile
@@ -172,7 +181,7 @@ class _QueueHandler():
 
     @profiler.time_profile
     def process_ocr_queue(self):
-        while config.running:
+        while config.running and config.ocr:
             try:
                 # small timeout to prevent cpu and queue spamming
                 ocr_task = self.ocr_queue.get(timeout=0.1) # TODO timeout what to set it to
@@ -236,7 +245,8 @@ class _QueueHandler():
             self.audio_player.start()
 
     def setOcrWorker(self):
-        if not self.ocr_worker or not self.ocr_worker.is_alive():
+        if config.ocr and not self.ocr_worker or not self.ocr_worker.is_alive():
+            print(f"Starting OCR thread...")
             # TODO target?
             self.ocr_worker = threading.Thread(target=self.process_ocr_queue, daemon=True)
             self.ocr_worker.start()

@@ -53,8 +53,8 @@ class _Config:
         self.default_voice = self.get("DEFAULT_VOICE")
         self.voice_map = self.get('VOICE_MAP') # map character names to the desired Kokoro voice codes
         self.last_text = None
-        self.interval = self.get("INTERVAL") # autoplay interval
-        self.running = True
+        self.interval = float(self.get("INTERVAL")) # autoplay interval
+        self._running = True
         self.next = False
         self.kokoro_url = self.get("KOKORO_URL")
         self.debug = str(self.get("DEBUG")).lower() == "true" # convert json true/false string to actual python bool
@@ -68,6 +68,9 @@ class _Config:
         self._autoplay = False
         self.autoplay_interval = float(self.get("AUTOPLAY_INTERVAL"))
         self.text_corrections = self.get("TEXT_CORRECTIONS")
+        self.listeners = []
+        self.on_start = None
+        self.on_stop = None
         self.ocr = None
 
         # finalize and lock initialization
@@ -78,6 +81,31 @@ class _Config:
         print(f'Config object init: {self.json}')
         print(f"voice map: {self.voice_map}")
         print(f'default_voice: {self.default_voice}')
+
+    @property
+    def running(self) -> bool:
+        return self._running
+
+    @running.setter
+    def running(self, value: bool):
+        print("Running: " + str(value))
+        if self._running != value:
+            self._running = value
+
+            if self._running and self.on_start:
+                self.on_start()
+            elif not self._running and self.on_stop:
+                self.on_stop()
+
+
+    @property
+    def autoplay(self) -> bool:
+        return self._autoplay
+
+    @autoplay.setter
+    def autoplay(self, value: bool):
+        print("Autoplay: " + str(value))
+        self._autoplay = value
 
 
     def load_json(self, filename):
@@ -118,6 +146,15 @@ class _Config:
     def update(self, key, value):
         print(f"Updating {key} to {value}")
         self.json[key] = value
+
+        prop = getattr(type(self), key, None)
+
+        # only use setattr() if there's no specific setter for it, otherwise use its specific setters
+        if isinstance(prop, property) and prop.fset is not None:
+            prop.fset(self, value)
+        else:
+            setattr(self, key, value)
+
         with open(LOCAL_CONFIG_FILE, 'w') as f: # TODO make local config file variable dynamic here
             json.dump(self.json, f, indent=4)
         print(f"Saved {key} to {LOCAL_CONFIG_FILE}")

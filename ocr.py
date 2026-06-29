@@ -1,6 +1,7 @@
 import time
 import cv2
 import easyocr
+import numpy as np
 
 from config_handler import config
 from image_processor import process_image
@@ -30,7 +31,7 @@ def start_processing(window):
     # TODO STORE IMAGE FIRST INSTEAD OF JUST RAW DATA before processing with ocr
 
     # only capture window if targeted window
-    if window and window.is_target_window():
+    if window and window.is_target():
         image = window.capture()
     else:
         print("Not the target window")
