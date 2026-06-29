@@ -1,5 +1,6 @@
 import json
 import os
+import threading
 
 CONFIG_FILE = "config.json"
 LOCAL_CONFIG_FILE = "config.local.json"
@@ -22,10 +23,29 @@ debug_levels = {
 # TODO for everything that can just be stored and retrieved easily from json just use config.get() for them instead of object properties?
 
 class _Config:
-    def __init__(self, filename):
+    _instance = None
+    _initialized = False
+    _lock = threading.Lock()
+
+
+    def __new__(cls, *args, **kwargs):
+        # ensure class can only be initialized once as a proper Singleton
+        if not cls._instance:
+            with cls._lock:
+                # double check to prevent race condition instancing
+                if not cls._instance:
+                    cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def __init__(self, filename=CONFIG_FILE):
+        # ensure init can only be run once
+        if _Config._initialized:
+            return
+
         self.filename = filename
         self.json = None
         self.load(filename)
+
         self.target_window_title = self.get("TARGET_WINDOW_TITLE")
         self.target_window_path = self.get("TARGET_WINDOW_PATH")
         self.target_window = None
@@ -45,12 +65,13 @@ class _Config:
         self.blacklist = self.get("BLACKLIST")
         self.target_list = self.get("TARGET_LIST")
         self.duplicate = False
-        self.autoplay_interval = int(self.get("AUTOPLAY_INTERVAL"))
         self._autoplay = False
         self.autoplay_interval = float(self.get("AUTOPLAY_INTERVAL"))
         self.text_corrections = self.get("TEXT_CORRECTIONS")
         self.ocr = None
 
+        # finalize and lock initialization
+        _Config._initialized = True
 
         # TODO move name and text selector to here
 
@@ -124,7 +145,7 @@ class _Config:
 
         if self.has_keys(name_key, text_key):
             name_selector = self.get(name_key)
-            text_selector = self.getg(text_key)
+            text_selector = self.get(text_key)
 
             print(f"Loading {name_key} from {LOCAL_CONFIG_FILE}. {name_selector}")
             print(f"Loading {text_key} from {LOCAL_CONFIG_FILE}. {text_key}")
