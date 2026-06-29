@@ -43,8 +43,14 @@ class _Config:
         self.lookup_cache = self.get("LOOKUP_CACHE")
         self.snipping = False
         self.blacklist = self.get("BLACKLIST")
+        self.target_list = self.get("TARGET_LIST")
         self.duplicate = False
         self.autoplay_interval = int(self.get("AUTOPLAY_INTERVAL"))
+        self._autoplay = False
+        self.autoplay_interval = float(self.get("AUTOPLAY_INTERVAL"))
+        self.text_corrections = self.get("TEXT_CORRECTIONS")
+        self.ocr = None
+
 
         # TODO move name and text selector to here
 

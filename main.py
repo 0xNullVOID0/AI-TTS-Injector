@@ -1,9 +1,11 @@
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
 import atexit
 import ctypes
+import threading
 import time
 from ctypes import wintypes
 
+import keyboard
 import mss
 import numpy as np
 import pythoncom
@@ -16,7 +18,8 @@ from mkb_handler import mkb
 from profiler import profiler
 from queue_handler import q
 from snipping_selector import SnippingSelector
-from window_handler import Window
+from window_handler import Window, user32, WinEventProcess, EVENT_WINDOW_FOCUS_CHANGED
+import popup_gui
 
 # TODO add GUI for settings, config, customization like voice selection, target window selection
 # TODO live translation?
@@ -31,45 +34,6 @@ from window_handler import Window
 # TODO can still take window capture of different than intended window, fix
 # TODO performance and delay testing, find bottleknecks
 
-# The ID for "Window Focus Changed" in Windows API https://learn.microsoft.com/en-us/windows/win32/winauto/event-constants
-EVENT_WINDOW_FOCUS_CHANGED = win32con.EVENT_OBJECT_FOCUS
-
-
-# TODO move all to window_handler?
-# Load the Windows DLL for SetWinEventHook
-user32 = ctypes.windll.user32
-hook = None
-
-# Define the callback types for SetWinEventHook
-WinEventProcess = ctypes.WINFUNCTYPE(
-    None,
-    wintypes.HANDLE,
-    wintypes.DWORD,
-    wintypes.HWND,
-    wintypes.LONG,
-    wintypes.LONG,
-    wintypes.DWORD,
-    wintypes.DWORD
-)
-
-
-# Gets called when focused window changes
-@profiler.time_profile
-def on_focus_change(win_event_hook, event, hwnd, id_object, id_child, event_thread, event_time):
-    # set active window so its globally available
-    config.active_window = Window(hwnd)
-
-    # TODO if autoplay on stop checking as intensely
-
-    if config.active_window.is_target_window():
-        config.target_window = config.active_window
-        name_key, text_key = config.get_target_window_selection_keys()
-
-        # TODO fix make more reliable
-        config.name_selector = config.get(name_key)
-        config.text_selector = config.get(text_key)
-
-        ocr.start_processing(config.target_window)
 
 @profiler.time_profile
 def cleanup():
@@ -117,6 +81,7 @@ def select_portion(p=""):
         print("Target window not set")
 
 
+# TODO refactor and move to mkb handler?
 @profiler.time_profile
 def on_trigger(p):
     print(f"Keybind pressed: {p}")
@@ -152,16 +117,17 @@ def on_trigger(p):
 def on_left_click():
     print("Left clickie")
 
-    if config.running and config.active_window == config.target_window:
-        if not config.snipping:
-            time.sleep(0.5) # wait a bit for text to update before scanning # TODO think about this time.sleep here, thread blocking issues and such
-            ocr.start_processing(config.target_window)
+    if config.running and config.ocr:
+        # if active window is the target window and currently not snipping(to prevent screen selection clicks triggering unwanted scans)
+        if config.active_window and config.active_window == config.target_window and not config.snipping:
+                time.sleep(0.5) # wait a bit for text to update before scanning # TODO think about this time.sleep here, thread blocking issues and such
+                ocr.start_processing(config.target_window)
 
 
 @profiler.time_profile
 def run():
     global hook
-    process = WinEventProcess(on_focus_change)
+    process = WinEventProcess(Window.on_focus_change)
 
     # use the window event hook from user32.dll
     hook = user32.SetWinEventHook(
@@ -177,7 +143,7 @@ def run():
     # settings = SettingsGUI()
     # settings.mainloop()
 
-    # set mouse and keyboard binds and pass trigger functions
+    # set mouse and keyboard binds and pass trigger functions, and make sure they're set before popup is initialized otherwise it has no access to em
     mkb.set_keybinds(on_trigger)
     mkb.set_mousebinds(on_left_click)
 

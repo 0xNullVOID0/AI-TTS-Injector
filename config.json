@@ -4,7 +4,7 @@
   "TARGET_WINDOW_TITLE": "Settings",
   "INTERVAL": 1.0,
   "AUTOPLAY_INTERVAL": 1.0,
-  "DEFAULT_VOICE": "af_heart",
+  "DEFAULT_VOICE": "af_bella",
   "KOKORO_FOLDER": "C:\\Users\\fresh\\Kokoro-FastAPI",
   "KOKORO_START_SCRIPT": "start-gpu.ps1",
   "KOKORO_HOST": "http://localhost",
@@ -15,6 +15,7 @@
   },
   "CHARACTERS": [],
   "BLACKLIST": ["JetBrains"],
+  "TARGET_LIST": [],
   "KEYBINDS": {
       "AUTOPLAY": "scroll lock",
       "SET_TARGET_WINDOW": "ctrl+home"
