@@ -1,8 +1,19 @@
+import ctypes
+import threading
+from ctypes import wintypes
+
 import mouse
 import keyboard as kb
+import win32api
 
-from autoplay import on_key_event
+from autoplay import autoplay_loop
 from config_handler import config
+from window_handler import Window
+
+
+# POINT structure for GetCursorPos
+class POINT(ctypes.Structure):
+    _fields_ = [("x", wintypes.LONG), ("y", wintypes.LONG)]
 
 
 class _MkbHandler:
@@ -27,8 +38,34 @@ class _MkbHandler:
 
     def set_autoplay_hook(self, func):
         # keybind hook for autoplay keybind events
-        kb.hook(lambda e: on_key_event(e, config.target_window, func))
+        kb.hook(lambda e: self.on_key_event(e, config.target_window, func))
 
+    def on_key_event(self, event, window=config.target_window, func=None):
+        # get ocr function from main file
+        # start_ocr_callback = ocr_func
+
+        # TODO make keybinds / event names enums?
+
+        # if autoplay key pressed/toggled
+        if event.name == 'scroll lock' and event.event_type == kb.KEY_UP:
+            autoplay_key_toggled = win32api.GetKeyState(0x91) & 1  # scroll lock key code
+
+            if autoplay_key_toggled and window:
+                # only if OCR is ON
+                if config.ocr:
+                    # if autoplay not on then start its thread
+                    if not config.autoplay:
+                        config.autoplay = True
+                        # spawn the auto clicker loop in a background thread
+                        autoplay_worker = threading.Thread(target=autoplay_loop, args=[window], daemon=True)
+                        autoplay_worker.start()
+                elif config.auto_keypress:
+                    if config.target_window:
+                        window.send_background_key("right", config.target_window)
+
+
+            elif not autoplay_key_toggled:
+                config.autoplay = False
 
 
 

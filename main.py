@@ -18,7 +18,7 @@ from mkb_handler import mkb
 from profiler import profiler
 from queue_handler import q
 from snipping_selector import SnippingSelector
-from window_handler import Window, user32, WinEventProcess, EVENT_WINDOW_FOCUS_CHANGED
+from window_handler import Window, user32, WinEventProcess, EVENT_WINDOW_FOCUS_CHANGED, EVENT_SYSTEM_FOREGROUND
 import popup_gui
 
 # TODO add GUI for settings, config, customization like voice selection, target window selection

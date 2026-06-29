@@ -14,11 +14,6 @@ start_ocr_callback = None
 
 # TODO add counters here
 
-def update_interval(i):
-    config.interval = i
-    config.save("INTERVAL", i)
-    print(f"interval updated to: {i}")
-
 def autoplay_loop(window):
     print("autoplay loop started")
     while config.autoplay:
@@ -30,9 +25,10 @@ def autoplay_loop(window):
                 if start_ocr_callback:
                     start_ocr_callback(window)
 
-            time.sleep(config.autoplay_interval) # todo make customizable
                 time.sleep(config.autoplay_interval) # todo make customizable
 
+            if keyboard.is_pressed("home"):
+                window.send_background_key("right")
 
 
             # TODO make autoplay interval dependant on text length for appropiate response time of every function, api whatever

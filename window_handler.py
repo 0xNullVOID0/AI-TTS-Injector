@@ -17,8 +17,8 @@ from config_handler import config
 from profiler import profiler
 
 
-# The ID for "Window Focus Changed" in Windows API https://learn.microsoft.com/en-us/windows/win32/winauto/event-constants
-EVENT_WINDOW_FOCUS_CHANGED = win32con.EVENT_OBJECT_FOCUS
+EVENT_WINDOW_FOCUS_CHANGED = win32con.EVENT_OBJECT_FOCUS     # The ID for "Window Focus Changed" in Windows API https://learn.microsoft.com/en-us/windows/win32/winauto/event-constants
+EVENT_SYSTEM_FOREGROUND = win32con.EVENT_SYSTEM_FOREGROUND   # The Windows constant for focus change
 
 
 # TODO move all to window_handler?
@@ -47,7 +47,6 @@ class Window:
         self.path = self.get_process_path()
         self._is_target = False
         self.blacklisted = False
-        print(f'Window object init: {self.title}')
         self.is_blacklisted()
         # print(f'Initialized {self}')
 
