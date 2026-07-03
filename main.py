@@ -118,7 +118,7 @@ def on_trigger(p):
         config.ocr = True
         q.start()
     elif p == "disable_ocr":
-        q.stop_ocr()
+        q.disable_ocr()
     elif p == "name" or p == "text":
         select_portion(p)
     else:
@@ -151,12 +151,13 @@ def run():
         print("Failed to set hook")
         return
 
-    # settings = SettingsGUI()
-    # settings.mainloop()
-
     # set mouse and keyboard binds and pass trigger functions, and make sure they're set before popup is initialized otherwise it has no access to em
     mkb.set_keybinds(on_trigger)
     mkb.set_mousebinds(on_left_click)
+
+    # set popup up in a thread so it doesn't block rest of code
+    popup_thread = threading.Thread(target=popup_gui.set_popup(), daemon=True)
+    popup_thread.start()
 
     print(f"DEBUG mode: {config.debug}")
 
