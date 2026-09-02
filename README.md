@@ -61,18 +61,18 @@ This repository represents a working but still very much WIP base. Please keep i
 
 ## Status
 
-| Area | State |
-| --- | --- |
-| Window targeting + focus hook | Working |
-| Region snipping (name / text) | Working, persisted per window title |
-| EasyOCR + image preprocess | Working, GPU assumed |
-| Kokoro-FastAPI auto-boot | Working on Windows (PowerShell start script) |
-| Remote / custom AI Voice API | Config-ready (`KOKORO_HOST` / `PORT` / `URL`) |
-| Playback queue, skip, stop | Working |
-| Live control panel | Partial (interval, autoplay, start/stop) |
-| Settings GUI & Voice Picker | Not built,Currently managed via config files |
+| Area | State                                                                  |
+| --- |------------------------------------------------------------------------|
+| Window targeting + focus hook | Working                                                                |
+| Region snipping (name / text) | Working, persisted per window title                                    |
+| EasyOCR + image preprocess | Working, GPU assumed                                                   |
+| Kokoro-FastAPI auto-boot | Working on Windows (PowerShell start script)                           |
+| Remote / custom AI Voice API | Config-ready (`KOKORO_HOST` / `PORT` / `URL`)                          |
+| Playback queue, skip, stop | Working                                                                |
+| Live control panel | Partial (interval, autoplay, start/stop)                               |
+| Settings GUI & Voice Picker | Not built, currently managed via config files                          |
 | Non-Windows | Not supported at the moment (`pywin32`, Win32 event hooks, PowerShell) |
-| Extra engines WIP / Planned,Kokoro active; Chatterbox branch WIP; Bark/F5 planned
+| Extra engines | Kokoro active; Chatterbox branch WIP; Bark/F5 considered               
 
 ---
 
