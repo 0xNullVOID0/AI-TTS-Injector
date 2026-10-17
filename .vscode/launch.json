@@ -1,0 +1,28 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            // Runs main.py. Runs `uv sync` first so the venv matches uv.lock.
+            "name": "Python: Main (uv)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            "preLaunchTask": "uv: sync",
+            "justMyCode": true
+        },
+        {
+            // Runs the file currently open in the editor, without `uv sync`.
+            "name": "Python: Current File (uv, fast no sync)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            "justMyCode": true
+        }
+    ]
+}

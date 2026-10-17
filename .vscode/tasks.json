@@ -1,0 +1,54 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "uv: sync",
+            "detail": "uv sync --inexact (updates .venv from uv.lock, keeps extra packages)",
+            "type": "shell",
+            "command": "uv",
+            "args": [
+                "sync",
+                "--inexact"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "silent",
+                "panel": "shared",
+                "clear": false
+            }
+        },
+        {
+            "label": "uv: run current file",
+            "detail": "uv run python <active file>",
+            "type": "shell",
+            "command": "uv",
+            "args": [
+                "run",
+                "python",
+                "${file}"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "uv: run main.py",
+            "detail": "uv run python main.py",
+            "type": "shell",
+            "command": "uv",
+            "args": [
+                "run",
+                "python",
+                "main.py"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": []
+        }
+    ]
+}
