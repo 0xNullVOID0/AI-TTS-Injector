@@ -1,6 +1,7 @@
 import ctypes
 import threading
 from ctypes import wintypes
+from typing import NamedTuple
 
 import mouse
 import keyboard as kb
@@ -16,24 +17,44 @@ class POINT(ctypes.Structure):
     _fields_ = [("x", wintypes.LONG), ("y", wintypes.LONG)]
 
 
+class Keybind(NamedTuple):
+    key: str          # KEYBINDS key in config.json
+    action: str       # string passed to on_trigger
+    default: str      # default keybind, gets overridden by custom binds from config.json
+    on_release: bool = False  # fire on key release instead of key press(to prevent multiple triggers when holding down a key, for more precise step adjustments)
+
+
 class _MkbHandler:
+    KEYBIND_ACTIONS = (
+        Keybind("NAME", "name", "shift+["),
+        Keybind("TEXT", "text", "shift+]"),
+        Keybind("SET_TARGET_WINDOW", "set_target_window", "shift+."),
+        Keybind("LEFT", "left", "left"),
+        Keybind("RIGHT", "right", "right"),
+        Keybind("UP", "up", "up"),
+        Keybind("DOWN", "down", "down"),
+        Keybind("START_OCR", "start_ocr", "shift+up"),
+        Keybind("DISABLE_OCR", "disable_ocr", "shift+down"),
+
+        Keybind("SPEED_UP", "speed_up", "alt+page up", True),
+        Keybind("SPEED_DOWN", "speed_down", "alt+page down", True),
+    )
+
     def __init__(self):
         self.keybinds = config.get("KEYBINDS")
 
-    # TODO make keybinds properly customizable
-    def set_keybinds(self, trigger): # name func or hook instead?
-        # start screen selection on trigger
-        kb.add_hotkey('shift+[', trigger, args=['name'])
-        kb.add_hotkey('shift+]', trigger, args=['text'])
-        kb.add_hotkey('shift+.', trigger, args=['set_target_window'])
-
-        # every arrow key direction
-        kb.add_hotkey('left', trigger, args=['left'])
-        kb.add_hotkey('right', trigger, args=['right'])
-        kb.add_hotkey('up', trigger, args=['up'])
-        kb.add_hotkey('down', trigger, args=['down'])
-
-        kb.add_hotkey('shift+up', trigger, args=['start_ocr'])
+    def set_keybinds(self, trigger):
+        # Keybinds from config.json override the defaults per action
+        configured = self.keybinds or {}
+        for keybind in self.KEYBIND_ACTIONS:
+            hotkey = configured.get(keybind.key) or keybind.default
+            try:
+                kb.add_hotkey(hotkey, trigger, args=[keybind.action], trigger_on_release=keybind.on_release)
+            except Exception as exc:
+                # fallback to default keybind if the configured one is invalid
+                print(f"Keybind {keybind.key} '{hotkey}' was not accepted: {exc}")
+                if hotkey != keybind.default:
+                    kb.add_hotkey(keybind.default, trigger, args=[keybind.action], trigger_on_release=keybind.on_release)
 
     def set_mousebinds(self, trigger):
         mouse.on_click(trigger)

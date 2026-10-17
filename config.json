@@ -17,8 +17,7 @@
   "BLACKLIST": ["JetBrains"],
   "TARGET_LIST": [],
   "KEYBINDS": {
-      "AUTOPLAY": "scroll lock",
-      "SET_TARGET_WINDOW": "ctrl+home"
+    
   },
   "LOOKUP_CACHE": {}
 }
