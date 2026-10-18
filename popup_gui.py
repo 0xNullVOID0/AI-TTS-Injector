@@ -274,12 +274,12 @@ class LiveControlPanel:
         self.is_open = False
 
 def set_popup():
+    # build panel, set its keybind and return it to main thread so it owns the TK mainloop 
     panel_manager = LiveControlPanel()
     panel_manager.build_ui()
 
     keyboard.add_hotkey(panel_manager.keybind, panel_manager.show)
 
-    # pass popup to config for easy global access
-    config.popup = panel_manager
+    config.popup = panel_manager  # pass popup to config for easy global access
 
-    panel_manager.root.mainloop()
+    return panel_manager

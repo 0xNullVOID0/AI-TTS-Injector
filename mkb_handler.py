@@ -28,7 +28,7 @@ class _MkbHandler:
     KEYBIND_ACTIONS = (
         Keybind("NAME", "name", "shift+["),
         Keybind("TEXT", "text", "shift+]"),
-        Keybind("SET_TARGET_WINDOW", "set_target_window", "shift+."),
+        Keybind("SET_TARGET_WINDOW", "set_target_window", "shift+'"),
         Keybind("LEFT", "left", "left"),
         Keybind("RIGHT", "right", "right"),
         Keybind("UP", "up", "up"),
@@ -50,25 +50,28 @@ class _MkbHandler:
             hotkey = configured.get(keybind.key) or keybind.default
             try:
                 kb.add_hotkey(hotkey, trigger, args=[keybind.action], trigger_on_release=keybind.on_release)
-            except Exception as exc:
-                # fallback to default keybind if the configured one is invalid
+            except Exception as exc:  # fallback to default keybind if the configured one is invalid
                 print(f"Keybind {keybind.key} '{hotkey}' was not accepted: {exc}")
                 if hotkey != keybind.default:
                     kb.add_hotkey(keybind.default, trigger, args=[keybind.action], trigger_on_release=keybind.on_release)
+
 
     def set_mousebinds(self, trigger):
         mouse.on_click(trigger)
 
     def set_autoplay_hook(self, func):
+        return
         # keybind hook for autoplay keybind events
         kb.hook(lambda e: self.on_key_event(e, config.target_window, func))
 
     def on_key_event(self, event, window=config.target_window, func=None):
         # get ocr function from main file
         # start_ocr_callback = ocr_func
+        return
 
         # TODO make keybinds / event names enums?
 
+        # TODO fix this autoplay this, improve
         # if autoplay key pressed/toggled
         if event.name == 'scroll lock' and event.event_type == kb.KEY_UP:
             autoplay_key_toggled = win32api.GetKeyState(0x91) & 1  # scroll lock key code

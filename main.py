@@ -1,6 +1,7 @@
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
 import atexit
 import ctypes
+import os
 import threading
 import time
 from ctypes import wintypes
@@ -84,7 +85,7 @@ def select_portion(p=""):
 # TODO refactor and move to mkb handler?
 @profiler.time_profile
 def on_trigger(p):
-    print(f"Keybind pressed: {p}")
+    print(f"Keybind pressed on_trigger: {p}")
     if p == "set_target_window":
         if config.active_window:
             title = config.active_window.title
@@ -122,7 +123,7 @@ def on_trigger(p):
     elif p == "name" or p == "text":
         select_portion(p)
     else:
-        print(f"ELSE KEYBIND")
+        print(f"ELSE KEYBIND: {p}")
 
 @profiler.time_profile
 def on_left_click():
@@ -138,6 +139,9 @@ def on_left_click():
 @profiler.time_profile
 def run():
     global hook
+
+    os.makedirs("window_captures", exist_ok=True) # create folder if doesn't exist already
+
     process = WinEventProcess(Window.on_focus_change)
 
     # use the window event hook from user32.dll
@@ -154,10 +158,8 @@ def run():
     # set mouse and keyboard binds and pass trigger functions, and make sure they're set before popup is initialized otherwise it has no access to em
     mkb.set_keybinds(on_trigger)
     mkb.set_mousebinds(on_left_click)
-
-    # set popup up in a thread so it doesn't block rest of code
-    popup_thread = threading.Thread(target=popup_gui.set_popup(), daemon=True)
-    popup_thread.start()
+   
+    panel = popup_gui.set_popup()  # build TK control panel on main thread for thread safety
 
     print(f"DEBUG mode: {config.debug}")
 
@@ -177,12 +179,16 @@ def run():
             # only register the kill command in production mode
             atexit.register(api_process.terminate)
 
+    # TK's mainloop provides the thread's native message pump (required for Win32 hooks).
+    # Using a recurring root.after callback to pump pythoncom messages and keep Ctrl+C responsive.
+    def pump_messages():
+        pythoncom.PumpWaitingMessages()
+        panel.root.after(50, pump_messages)
+
     try:
-        # keep script
-        while True:
-            # pump/listen to Windows messages manually without locking the thread
-            pythoncom.PumpWaitingMessages()
-            time.sleep(0.05)
+        panel.root.after(50, pump_messages)
+        panel.root.mainloop()
+            
     except KeyboardInterrupt:
         return
 
