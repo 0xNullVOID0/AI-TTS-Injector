@@ -1,10 +1,14 @@
 {
+  "PROJECT_NAME": "AI-TTS-Injector",
   "DEBUG": "True",
   "AUDIO_FOLDER": "saved_audio",
   "TARGET_WINDOW_TITLE": "Settings",
   "INTERVAL": 1.0,
   "AUTOPLAY_INTERVAL": 1.0,
   "DEFAULT_VOICE": "af_bella",
+  "ACTIVE_TTS_API": "KOKORO",
+  "KOKORO_HOST": "http://localhost",
+  "KOKORO_PORT": 8880,
   "KOKORO_FOLDER": "C:\\Users\\fresh\\Kokoro-FastAPI",
   "KOKORO_START_SCRIPT": "start-gpu.ps1",
   "KOKORO_HOST": "http://localhost",
@@ -14,10 +18,24 @@
     "Narrator": "af_heart"
   },
   "CHARACTERS": [],
-  "BLACKLIST": ["JetBrains"],
+  "BLACKLIST": ["JetBrains", "Microsoft Visual Studio", "Code"],
   "TARGET_LIST": [],
   "KEYBINDS": {
     
   },
-  "LOOKUP_CACHE": {}
+  
+  "LOOKUP_CACHE": {},
+  "TEXT_CORRECTIONS": {
+      "youre": "you're",
+      "dont": "don't",
+      "cant": "can't",
+      "wont": "won't",
+      "hes": "he's",
+      "shes": "she's",
+      "ive": "i've",
+      "im": "i'm",
+      "II": "I'll",
+      "IIl": "I'll",
+  }
+
 }

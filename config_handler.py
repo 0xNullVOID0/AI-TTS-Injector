@@ -46,17 +46,19 @@ class _Config:
         self.json = None
         self.load(filename)
 
+        self.project_name = self.get("PROJECT_NAME")
+        self.audio_folder = self.get("AUDIO_FOLDER")
         self.target_window_title = self.get("TARGET_WINDOW_TITLE")
         self.target_window_path = self.get("TARGET_WINDOW_PATH")
         self.target_window = None
         self.active_window = None
+        self.active_tts_api = self.get("ACTIVE_TTS_API") or "KOKORO"
         self.default_voice = self.get("DEFAULT_VOICE")
         self.voice_map = self.get('VOICE_MAP') # map character names to the desired Kokoro voice codes
         self.last_text = None
         self.interval = float(self.get("INTERVAL")) # autoplay interval
         self._running = True
         self.next = False
-        self.kokoro_url = self.get("KOKORO_URL")
         self.debug = str(self.get("DEBUG")).lower() == "true" # convert json true/false string to actual python bool
         self.ocr_counter = 0 # TOOD move
         self.characters = self.get("CHARACTERS")
@@ -73,6 +75,8 @@ class _Config:
         self.on_stop = None
         self.ocr = None
 
+        self.kokoro_host = self.get("KOKORO_HOST") or "http://localhost"
+        self.kokoro_port = self.get("KOKORO_PORT") or "8880"
         # finalize and lock initialization
         _Config._initialized = True
 

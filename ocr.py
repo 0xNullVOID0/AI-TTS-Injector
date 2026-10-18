@@ -5,10 +5,11 @@ import numpy as np
 
 from config_handler import config
 from image_processor import process_image
-from kokoro_tts import send
 from mkb_handler import mkb
 from profiler import profiler
 from text_processor import process_ocr
+from queue_handler import q
+
 
 # Verify cuda stuff for ocr debugging
 # import os
@@ -22,6 +23,15 @@ ocr_counter = 0
 
 # TODO resize ocr image and other ocr pre and or post processing for more accurate scans
 
+@profiler.time_profile
+def send(text, voice):
+    # prevent empty requests
+    if not text or not text.strip():
+        print("EMPTY text")
+        return
+
+    # the download worker calls the voice API through the VoiceEngine, so only the text and voice are queued
+    q.add({"text": text, "voice": voice}, "download")
 
 @profiler.time_profile
 def start_processing(window):

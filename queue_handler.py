@@ -2,16 +2,16 @@ import io
 import os
 import queue
 import threading
-
 import numpy as np
-import requests
 import sounddevice as sd
 import soundfile as sf
+from openai import APIConnectionError, APIStatusError
 from pydub import AudioSegment
 
 import ocr
 from config_handler import config
 from profiler import profiler
+from voice_engine import voice_engine
 
 
 class _QueueHandler():
@@ -127,35 +127,30 @@ class _QueueHandler():
             self.request_counter += 1
             print(f"Request counter: {self.request_counter}")
 
-            response = requests.post(download_task["url"], json=download_task["payload"], timeout=10)
-            print(f"Response status: {response.status_code}")
+            audio_bytes = voice_engine.synthesize(download_task["text"], download_task["voice"])
+            self.succ_request_counter += 1
+            print(f"Successful request counter: {self.succ_request_counter}")
 
-            if response.status_code == 200:
-                self.succ_request_counter += 1
-                print(f"Successful request counter: {self.succ_request_counter}")
+            folder = config.get("AUDIO_FOLDER")
+            os.makedirs(folder, exist_ok=True)
+            file_path = os.path.join(folder, f"{self.request_counter}.wav")
 
-                folder = config.get("AUDIO_FOLDER")
-                os.makedirs(folder, exist_ok=True)
-                file_path = os.path.join(folder, f"{self.request_counter}.wav")
+            # add audio fade if no or low audio queue
+            if self.audio_queue.qsize() <= 2:
+                print(f"[DOWNLOADER] adding audio fade to file: {file_path}, audio queue: {self.audio_queue.qsize()}")
+                audio_bytes = self.add_smooth_fade(audio_bytes)
 
-                audio_bytes = response.content
+            # save audio file # TODO make optional, on with debug and also config and GUI option
+            with open(file_path, "wb") as f:
+                f.write(audio_bytes)
+            print(f"[DOWNLOADER] saved: {file_path}")
 
-                # add audio fade if no or low audio queue
-                if self.audio_queue.qsize() <= 2:
-                    print(f"[DOWNLOADER] adding audio fade to file: {file_path}, audio queue: {self.audio_queue.qsize()}")
-                    audio_bytes = self.add_smooth_fade(audio_bytes)
-
-                # save audio file
-                with open(file_path, "wb") as f:
-                    f.write(audio_bytes)
-                print(f"[DOWNLOADER] saved: {file_path}")
-
-                # add file path to audio queue instead of bulky response object
-                self.add(file_path, "audio")
-            else:
-                print(f"Kokoro server error: {response.status_code}: {response.text}")
-        except requests.exceptions.RequestException as e:
-            print(f"Connection error: {e}")
+            # add file path to audio queue instead of bulky response object
+            self.add(file_path, "audio")
+        except APIConnectionError as e:
+            print(f"{config.active_tts_api} Connection Error: {e}")
+        except APIStatusError as e:
+            print(f"{config.active_tts_api} Server Error: {e.status_code}: {e.message}")
         finally:
             # always complete task to prevent deadlocks
             try:
@@ -235,12 +230,14 @@ class _QueueHandler():
     def setDownloader(self):
         # check if thread exists and is currently alive
         if not self.downloader or not self.downloader.is_alive():
+            print(f"Starting downloader thread...")
             self.downloader = threading.Thread(target=self.download, daemon=True)
             self.downloader.start()
 
     def setAudioPlayer(self):
         # check if thread exists and is currently alive
         if not self.audio_player or not self.audio_player.is_alive():
+            print(f"Starting audio player thread...")
             self.audio_player = threading.Thread(target=self.play_audio, daemon=True)
             self.audio_player.start()
 

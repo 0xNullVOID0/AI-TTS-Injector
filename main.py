@@ -117,8 +117,15 @@ def on_trigger(p):
         q.start()
     elif p == "start_ocr":
         config.ocr = True
+
+        # TODO better location? check if right like this(audio, download set)
+        q.setDownloader()
+        q.setAudioPlayer()
+
         q.start()
+
     elif p == "disable_ocr":
+        # TODO can crash here
         q.disable_ocr()
     elif p == "name" or p == "text":
         select_portion(p)
