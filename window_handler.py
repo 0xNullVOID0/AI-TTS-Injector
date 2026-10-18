@@ -74,6 +74,36 @@ class Window:
         except Exception as e:
             print(f"[Window] failed to calculate window center or click: {e}")
 
+    # Triggers a keypress to the given window, optionally on the set interval.
+    def send_background_key(self, virtual_key, window=config.target_window, interval=config.interval):
+        if not self.hwnd:
+            return
+        hwnd = self.hwnd
+        # if keyboard.is_pressed("home"):
+
+        # get correct keycode belonging to key
+        key_code = win32api.MapVirtualKey(virtual_key, 0)
+
+        # if right arrow
+        if key_code == win32con.VK_RIGHT and window == config.target_window:
+            hwnd = config.target_window
+
+        # some game engines expect lparams
+        # bit 24 must be set to 1 for keys like arrow keys and the ones above it
+        lparam_down = 1 | (key_code << 16) | (1 << 24)
+        lparam_up = 1 | (key_code << 16) | (1 << 24) | (1 << 30) | (1 << 31)
+
+        try:
+            # press key up and down
+            win32gui.PostMessage(hwnd, win32con.WM_KEYDOWN, virtual_key, lparam_down)
+            time.sleep(0.03)
+            win32gui.PostMessage(hwnd, win32con.WM_KEYUP, virtual_key, lparam_up)
+
+            print(f"[Window] Sent keypress to target window.")
+            time.sleep(interval)
+
+        except KeyboardInterrupt:
+            print("\n[Window] Interval loop stopped.")
 
     def is_blacklisted(self):
         # aggressive blacklist check, if path just matches any word in blacklist # TODO maybe too harsh and false positive risk?
@@ -187,6 +217,7 @@ class Window:
     # use process path instead of window name for more reliability
     @profiler.time_profile
     def get_process_path(self):
+        handle = None
         try:
             # use PID and handle to get process path
             _, pid = win32process.GetWindowThreadProcessId(self.hwnd)
@@ -202,6 +233,9 @@ class Window:
                 print(f"[Window] ERROR Access denied: {e}")
             else:
                 print(f"[Window] ERROR: Failed to get process path: {e}")
+        finally:
+            if handle: # cleanup opened handle of process to prevent handle leak
+                win32api.CloseHandle(handle)
 
     # Gets called when focused window changes
     @staticmethod
