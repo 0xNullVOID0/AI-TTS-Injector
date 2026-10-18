@@ -116,11 +116,18 @@ class Window:
         if self.is_blacklisted():
             return False
 
+        # TODO fix the, no click or program switch after program boot so on_focus_change didnt proc yet and thinks its on python or something else when the real focused window is another program
+
+        normalized_path = os.path.normpath(self.path) if self.path else None
+        if not normalized_path:
+            print("[Window] IS NOT a target (no valid path)")
+            self._is_target = False
+            return self._is_target
+
         # TODO move this to setters/getters and or just store paths at pathlib.Path?
-        # Normalize paths to handle slash mismatches (e.g., / vs \)
-        normalized_path = os.path.normpath(self.path) if self.path else ""
-        normalized_target = os.path.normpath(config.target_window_path) if config.target_window_path else ""
-        normalized_targets = [os.path.normpath(target) for target in config.target_list]
+        # Normalize paths to handle slash mismatches (e.g., / vs \), filter empty path strings too
+        normalized_target = os.path.normpath(config.target_window_path) if config.target_window_path else None
+        normalized_targets = [os.path.normpath(target) for target in config.target_list if target]
 
         print(f"normalized path: {normalized_path}")
         print(f"normalized targets: {normalized_target}")
@@ -128,7 +135,9 @@ class Window:
 
         # TODO still do window title comparisons too?
         # TODO test programs with multiple windows, instances, popups whatever
-        # check both process path and title since title alone is too unreliable
+        # TODO bug, goes wrong if program with 2 windows/tabs, same process id and path but different windows such as chrome, one window is target and other is not, then it will always return true for both windows since path matches, but only one window is actually the target window, so need to check title too or something
+        # TODO especially if they're on different monitors, then the window capture can/will be wrong and u'll get a empty text for OCR
+        # check both process path and title since title alone is too unreliable (and make sure they're not None/Null)
         if normalized_path == normalized_target:
             print("[Window] IS target")
             self._is_target = True
