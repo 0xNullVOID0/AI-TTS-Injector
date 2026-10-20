@@ -5,8 +5,13 @@
   "TARGET_WINDOW_TITLE": "Settings",
   "INTERVAL": 1.0,
   "AUTOPLAY_INTERVAL": 1.0,
-  "DEFAULT_VOICE": "af_bella",
+
   "ACTIVE_TTS_API": "KOKORO",
+  "OPENROUTER_SPEECH": "https://openrouter.ai/api/v1",
+  "OPENROUTER_API_KEY": "",
+
+  "FISH_MODEL": "fish-audio/drama-3",
+  "FISH_VOICE": "f3a2b90078d54a65af4b95f63bc7798e",
   "KOKORO_HOST": "http://localhost",
   "KOKORO_PORT": 8880,
   "KOKORO_FOLDER": "C:\\Users\\fresh\\Kokoro-FastAPI",

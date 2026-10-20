@@ -4,7 +4,6 @@ import queue
 import threading
 import numpy as np
 import sounddevice as sd
-import soundfile as sf
 from openai import APIConnectionError, APIStatusError
 from pydub import AudioSegment
 
@@ -91,17 +90,27 @@ class _QueueHandler():
 
     # TODO finish audio class and move stuff like this to it
     @profiler.time_profile
-    def add_smooth_fade(self, raw_audio_bytes):
+    def add_smooth_fade(self, raw_audio_bytes, audio_format):
         try:
-            # load raw bytes into audio segment memory
-            audio = AudioSegment.from_file(io.BytesIO(raw_audio_bytes))
+            if audio_format == "pcm":
+                audio = AudioSegment(
+                    data=raw_audio_bytes,
+                    sample_width=voice_engine.sample_width,
+                    frame_rate=voice_engine.sample_rate,
+                    channels=voice_engine.channels,
+                )
+            else:
+                audio = AudioSegment.from_file(io.BytesIO(raw_audio_bytes), format=audio_format)
 
             # short fade in and out to remove static/crackling at end
             smoothed_audio = audio.fade_in(50).fade_out(50)
 
-            # export smoothed audio to RAM
+            if audio_format == "pcm":
+                return smoothed_audio.raw_data
+
+            # Preserve the response's encoded format when exporting the faded audio.
             audio_bytes = io.BytesIO()
-            smoothed_audio.export(audio_bytes, format="wav")
+            smoothed_audio.export(audio_bytes, format=audio_format)
 
             return audio_bytes.getvalue()
 
@@ -133,7 +142,10 @@ class _QueueHandler():
 
             folder = config.get("AUDIO_FOLDER")
             os.makedirs(folder, exist_ok=True)
-            file_path = os.path.join(folder, f"{self.request_counter}.wav")
+            audio_format = voice_engine.response_format.lower()
+            if audio_format not in {"pcm", "wav", "mp3"}:
+                raise ValueError(f"Unsupported audio response format: {audio_format}")
+            file_path = os.path.join(folder, f"{self.request_counter}.{audio_format}")
 
             # add audio fade if no or low audio queue
             if self.audio_queue.qsize() <= 2:
@@ -204,9 +216,23 @@ class _QueueHandler():
 
                 if os.path.exists(file_path):
                     print(f"Playing audio file: {file_path}")
-                    data, fs = sf.read(file_path)
+                    audio_format = os.path.splitext(file_path)[1].lstrip(".").lower()
+                    if audio_format == "pcm":
+                        with open(file_path, "rb") as audio_file:
+                            audio = AudioSegment(
+                                data=audio_file.read(),
+                                sample_width=voice_engine.sample_width,
+                                frame_rate=voice_engine.sample_rate,
+                                channels=voice_engine.channels,
+                            )
+                    else:
+                        audio = AudioSegment.from_file(file_path, format=audio_format)
 
-                    sd.play(data, fs)
+                    data = np.array(audio.get_array_of_samples())
+                    if audio.channels > 1:
+                        data = data.reshape((-1, audio.channels))
+
+                    sd.play(data, audio.frame_rate)
                     self.audio_played_counter += 1
                     print(f"Audio count: {self.audio_played_counter}")
 

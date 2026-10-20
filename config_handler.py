@@ -75,8 +75,17 @@ class _Config:
         self.on_stop = None
         self.ocr = None
 
+        # Voice APIs
+        self.openrouter_base = "https://openrouter.ai/api/v1"
+        self.openrouter_api_key = self.get("OPENROUTER_API_KEY") or ""
+
+        self.fish_model = self.get("FISH_MODEL") or "fish-audio/drama-3"
+        self.fish_voice = self.get("FISH_VOICE") or "f3a2b90078d54a65af4b95f63bc7798e"
+        self.fish_format = "pcm"
+
         self.kokoro_host = self.get("KOKORO_HOST") or "http://localhost"
         self.kokoro_port = self.get("KOKORO_PORT") or "8880"
+
         # finalize and lock initialization
         _Config._initialized = True
 

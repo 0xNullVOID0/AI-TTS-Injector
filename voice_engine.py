@@ -7,22 +7,30 @@ from config_handler import config
 # TODO hybrid approach: stream first and when queue done and audio already finished playing, normal download to queue buffer in all other cases
 # TODO tag queue order if multiple download threads to maintain proper audio order, or single thread enough?
 # TODO saving audio for debugging and general config option for it 
+# TODO mp3 options and config from the paid api's + the required playback and processing code
 class VoiceEngine():
     def __init__(self):
         self.model = "kokoro"
         self.response_format = "pcm"
         self.extra_body = None
+        self.api = None
+        
+        # PCM has no header so set format metadata for playback, gets adjusted per Voice API
+        self.sample_rate = 44100    
+        self.channels = 1           # expected PCM channels: 1 = mono, 2 = stereo; mono still gets played through both speakers
+        self.sample_width = 2       # bytes per sample: 1 = 8-bit, 2 = 16-bit
+        
         self.client = self.set_voice_API_client()
 
+    # Set and configure OpenAI compatible client for selected TTS/Voice API(Local or External) 
     def set_voice_API_client(self):
         # TODO: add more voice API clients here, maybe a factory pattern or strategy pattern for different APIs
-        api = config.active_tts_api
-
-        match api:
-            case "KOKORO":
-                # Kokoro-FastAPI serves an OpenAI-compatible speech endpoint
+        self.api = config.active_tts_api
+        match self.api:
+            case "KOKORO": # Local self hosted Kokoro
                 self.model = "kokoro"
                 self.response_format = "wav"
+                self.sample_rate = None
                 self.extra_body = {
                     "lang_code": "a",
                     "cleaner": "american_english",
@@ -34,9 +42,18 @@ class VoiceEngine():
                         "phone_normalization": True,
                     },
                 }
-                return OpenAI(
-                    base_url=f"{config.kokoro_host}:{config.kokoro_port}/v1",
-                    api_key="local-not-needed", timeout=10, max_retries=0)
+                url = f"{config.kokoro_host}:{config.kokoro_port}/v1"
+                return OpenAI(base_url=url, api_key="local-not-needed", timeout=10, max_retries=0)
+            case "FISH_AUDIO": # Drama-3 (Paid API)
+                self.model = config.fish_model
+                self.response_format = "pcm"
+                self.sample_rate = 44100
+                self.channels = 1
+                self.sample_width = 2
+                self.extra_body = {}
+                return OpenAI(base_url=config.openrouter_base, api_key=config.openrouter_api_key, timeout=10, max_retries=1,
+                              default_headers={"X-OpenRouter-Title": config.project_name, # "HTTP-Referer": "https://github.com/0xNullVOID0/AI-TTS-Injector", # pyright: ignore[reportArgumentType]
+                })
             case _:
                 raise ValueError(f"Unknown ACTIVE_TTS_API: {api}")
             # case "ELEVENLABS":
@@ -47,7 +64,17 @@ class VoiceEngine():
     # returns audio bytes for the given text and voice, raises openai.APIConnectionError or openai.APIStatusError on failure
     @profiler.time_profile
     def synthesize(self, text, voice):
-        print(f"[VoiceEngine] synthesizing text: {text} with voice: {voice} using API: {config.active_tts_api}")
+        request_voice = config.fish_voice if self.api == "FISH_AUDIO" else voice
+        print(f"[VoiceEngine] synthesizing text: {text} with voice: {request_voice} using API: {self.api}")
+        if self.api == "FISH_AUDIO":
+            with self.client.audio.speech.with_streaming_response.create(
+                model=self.model,
+                voice=request_voice,
+                input=text,
+                response_format=self.response_format,
+                extra_body=self.extra_body,
+            ) as response:
+                return response.read()
         response = self.client.audio.speech.create(
             model=self.model,
             voice=voice,
