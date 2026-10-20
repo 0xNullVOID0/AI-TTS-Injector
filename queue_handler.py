@@ -33,6 +33,7 @@ class _QueueHandler():
         self.audio_stop_event = threading.Event()
         self.download_stop_event = threading.Event()
         self.ocr_worker_stop_event = threading.Event()
+        
 
     # call resume instead?
     # start all queues and worker threads
@@ -41,6 +42,7 @@ class _QueueHandler():
         # prevent duplicate toggles
         if not config.running:
             print('Starting Queue worker')
+            config.running = True
             # TODO turn both more into components that can be enabled/disabled too?
             self.audio_stop_event.clear()
             self.download_stop_event.clear()
@@ -49,7 +51,6 @@ class _QueueHandler():
             self.setDownloader()
             self.setAudioPlayer()
 
-            config.running = True
             print(f'Resuming: {config.running}')
 
         # only start OCR if component enabled
@@ -67,7 +68,8 @@ class _QueueHandler():
     def stop(self):
         # prevent duplicate toggles
         if config.running:
-            print('Pausing/Stopping Queue worker')
+            print('Pausing/Stopping Queue workers/threads')
+            config.running = False
             self.audio_stop_event.set()
             self.download_stop_event.set()
             self.ocr_worker_stop_event.set()
@@ -81,7 +83,12 @@ class _QueueHandler():
         self.audio_stop_event.set()
         print(f'Skipping')
 
-
+    @profiler.time_profile
+    def disable_ocr(self):
+        if config.ocr:
+            print('[Queue] Disabling OCR')
+            self.ocr_worker_stop_event.set()
+            config.ocr = False
 
 
     def increaseBuffer(self):
@@ -173,14 +180,23 @@ class _QueueHandler():
     @profiler.time_profile
     def download(self):
         while config.running:
+            # Check the stop event BEFORE pulling an item out of the queue
+            if self.download_stop_event.is_set():
+                break  # Exit the loop instantly without modifying queue items
+
             try:
                 # small timeout to prevent cpu and queue spamming
                 download_task = self.download_queue.get(timeout=0.5) # TODO timeout what to set it to
 
                 # stop downloading if thread stop event is called
                 if self.download_stop_event.is_set():
+                    # Return the item to the queue so it isn't lost
+                    self.download_queue.put(download_task)
+                    # Tell the queue we are releasing our lock on this specific fetch operation
                     self.download_queue.task_done()
-                    continue
+                    break
+
+
 
                 self.dl(download_task)
             except queue.Empty:
@@ -188,7 +204,7 @@ class _QueueHandler():
 
     @profiler.time_profile
     def process_ocr_queue(self):
-        while config.running and config.ocr:
+        while config.running and config.ocr and not self.ocr_worker_stop_event.is_set():
             try:
                 # small timeout to prevent cpu and queue spamming
                 ocr_task = self.ocr_queue.get(timeout=0.1) # TODO timeout what to set it to
