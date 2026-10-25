@@ -14,13 +14,20 @@ import win32con
 
 import ocr
 from config_handler import config
-from kokoro_api import boot_backend_api
+from docker_manager import COMPOSE_FILE, COMPOSE_PROJECT, DockerManager
 from mkb_handler import mkb
 from profiler import profiler
 from queue_handler import q
 from snipping_selector import SnippingSelector
 from window_handler import Window, user32, WinEventProcess, EVENT_WINDOW_FOCUS_CHANGED, EVENT_SYSTEM_FOREGROUND
 import popup_gui
+
+docker_manager = DockerManager(
+    compose_file=COMPOSE_FILE,
+    project_name=COMPOSE_PROJECT,
+    compose_environment={"KOKORO_PORT": str(config.kokoro_port)},
+)
+atexit.register(docker_manager.close)
 
 # TODO add GUI for settings, config, customization like voice selection, target window selection
 # TODO live translation?
@@ -170,21 +177,12 @@ def run():
 
     print(f"DEBUG mode: {config.debug}")
 
-    api_process = boot_backend_api()
+    if not docker_manager.ensure_service_running("kokoro-tts"):
+        raise RuntimeError("Could not start the Kokoro Docker Compose service")
 
     # bind start/stop functions from queue handler to config
     config.on_start = q.start
     config.on_stop = q.stop
-
-    if api_process:
-        # True: Leaves Kokoro running when main.py stops
-        # False: Kills Kokoro automatically when main.py closes
-        if config.debug:
-            print("[Debug Mode] Active: Kokoro API will persist in the background after exit")
-        else:
-            print("[Production Mode] Active: Tying Kokoro API to main script stop signals for auto termination")
-            # only register the kill command in production mode
-            atexit.register(api_process.terminate)
 
     # TK's mainloop provides the thread's native message pump (required for Win32 hooks).
     # Using a recurring root.after callback to pump pythoncom messages and keep Ctrl+C responsive.
