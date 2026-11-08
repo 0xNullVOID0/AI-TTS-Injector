@@ -122,6 +122,15 @@ def on_trigger(p):
         q.stop()
     elif p == "up":
         q.start()
+    elif p == "toggle_testing":
+        with config.testing_lock:
+            config.testing = not config.testing
+            config.tested = False
+            testing = config.testing
+        print(f"Testing mode: {'ON' if testing else 'OFF'}")
+    elif p == "start_ocr":
+        with config.testing_lock:
+            config.tested = False
     elif p == "start_ocr":
         config.ocr = True
 

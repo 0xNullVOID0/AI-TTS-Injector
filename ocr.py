@@ -74,15 +74,33 @@ def start_processing(window):
             voice = get_voice_for_name(name)
 
         # prevent duplicate requests
-        if text and text != config.last_text:
+        # Testing mode permits one send per OCR start; otherwise dedupe exact text.
+        should_send = False
+        testing_limited = False
+        if isinstance(text, str) and text.strip():
+            with config.testing_lock:
+                if config.testing:
+                    should_send = not config.tested
+                    if should_send:
+                        config.tested = True
+                    else:
+                        testing_limited = True
+                else:
+                    should_send = text != config.last_text
+
+                if should_send:
+                    config.last_text = text
+
+        if should_send:
             print(f"TEXT SELECTED: {text}")
-            config.last_text = text
             config.duplicate = False
-            # sends and plays audio using local kokoro
-            print("SENDING ")
+            print(f"{ANSI_GREEN}SENDING{ANSI_RESET}")
             send(text.lower(), voice)
+        elif testing_limited:
+            print(f"{ANSI_RED}TESTING LIMIT REACHED, SKIPPING{ANSI_RESET}")
+            config.duplicate = True
         else:
-            print(f"DUPLICATE TEXT, SKIPPING")
+            print("DUPLICATE OR EMPTY TEXT, SKIPPING")
             config.duplicate = True
             # TODO allow cycling between selections, as in first scan is selection 1, scan 2 selec 2 and loop, repeat
     else:
@@ -161,8 +179,10 @@ def grab_name_and_text_selections(screenshot):
         # save screenshots for debugging
         if config.debug and not config.duplicate:
             timestamp = time.strftime("%Y%m%d-%H%M%S")
-            cv2.imwrite(f"screenshots/debug_name_crop_{timestamp}.png", name_crop)
-            cv2.imwrite(f"screenshots/debug_text_crop_{timestamp}.png", text_crop)
+            # TODO from config
+            cv2.imwrite(f"{config.window_captures_folder}/debug_name_crop_{timestamp}.png", name_crop)
+            cv2.imwrite(f"{config.window_captures_folder}/debug_text_crop_{timestamp}.png", text_crop)
+
 
         return name, text
     else:

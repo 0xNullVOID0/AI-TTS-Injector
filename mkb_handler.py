@@ -35,6 +35,7 @@ class _MkbHandler:
         Keybind("DOWN", "down", "down"),
         Keybind("START_OCR", "start_ocr", "shift+up"),
         Keybind("DISABLE_OCR", "disable_ocr", "shift+down"),
+        Keybind("TESTING", "toggle_testing", "shift+t", True),
 
         Keybind("SPEED_UP", "speed_up", "alt+page up", True),
         Keybind("SPEED_DOWN", "speed_down", "alt+page down", True),

@@ -24,6 +24,7 @@ def clean_text(text):
 
 @profiler.time_profile
 def fix_ocr(text):
+        # TODO fix bug, can enter here with empty string and then it will return empty string and will crash, but error happens before here then. see CRASH_LOG_2
     # ocr often mistakes . for : and , for ; messing up speed of talking and pauses
     text = text.replace(":", ".").replace(";", ",").replace("_", "...")
 

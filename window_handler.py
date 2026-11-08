@@ -192,7 +192,7 @@ class Window:
                 # save images for debugging
                 if config.debug and not config.duplicate:
                     timestamp = time.strftime("%Y%m%d-%H%M%S")
-                    cv2.imwrite(f"screenshots/window_{self.title}_{timestamp}.png", image)
+                    cv2.imwrite(f"{config.window_captures_folder}/window_{self.title}_{timestamp}.png", image)
 
                 # img_array = process_image(img_array)
                 return image
@@ -216,7 +216,7 @@ class Window:
                 # save images for debugging
                 if config.debug and not config.duplicate:
                     timestamp = time.strftime("%Y%m%d-%H%M%S")
-                    cv2.imwrite(f"screenshots/window_{self.title}_{timestamp}.png", image)
+                    cv2.imwrite(f"{config.window_captures_folder}/window_{self.title}_{timestamp}.png", image)
 
                 # img_array = process_image(img_array)
                 return image

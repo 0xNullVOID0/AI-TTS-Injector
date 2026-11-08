@@ -1,6 +1,7 @@
-/__pycache__
+*__pycache__
 /config.local.json
 /assets
+/saved_audio
 *.log
 *.png
 *.wav

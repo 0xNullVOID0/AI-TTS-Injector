@@ -2,7 +2,7 @@ from datetime import datetime
 import sys
 
 class ConsoleLogger:
-    def __init__(self, log_filename="console_output.log"):
+    def __init__(self, log_filename="LOGC.log"):
         # store original streams so we can still print to the actual terminal
         self.terminal_out = sys.stdout
         self.terminal_err = sys.stderr
@@ -13,6 +13,7 @@ class ConsoleLogger:
         # session seperator
         self.log_file.write(f"\n--- SESSION STARTED: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ---\n")
         self.log_file.flush()
+
 
     def write(self, message):
         self.terminal_out.write(message)
@@ -25,6 +26,9 @@ class ConsoleLogger:
         self.log_file.flush()
 
 
-# Hijacks and captures all stdout and stderr globally across all scripts/modules
-sys.stdout = ConsoleLogger()
-sys.stderr = sys.stdout
+
+
+def log(log_filename="LOGC.log"):
+    # Hijacks and captures all stdout and stderr globally across all scripts/modules
+    sys.stdout = ConsoleLogger(log_filename)
+    sys.stderr = sys.stdout

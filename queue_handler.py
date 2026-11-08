@@ -94,6 +94,19 @@ class _QueueHandler():
     def increaseBuffer(self):
         # TODO buffer only possible if same character keeps talking, the moment name switches u gotta stop and reset, due to different voices, or only do a voice difference check not even name
         return True
+    
+    # for AUDIO stream
+    def add_smooth_fade_to_stream(self, audio):
+        # TODO add to audio before last one or add it beforehand
+        # A tiny silent buffer (e.g., 50ms of silence)
+        # TODO adjust KHz based on audio's
+        SILENCE_PADDING = np.zeros(int(44100 * 0.05), dtype=np.int16)
+
+        print("Appending silence padding to avoid cracking...")
+        return np.concatenate([SILENCE_PADDING, audio])
+
+    # TODO finish audio class and move stuff like this to it
+    # TODO still neccesary? or just kokoro
 
     # TODO finish audio class and move stuff like this to it
     @profiler.time_profile

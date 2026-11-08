@@ -1,3 +1,4 @@
+import os
 import time
 
 import cv2
@@ -9,12 +10,14 @@ from profiler import profiler
 # Downscales images for more accurate OCR due to font sizes and such
 @profiler.time_profile
 def downscale(image):
+    return image;
+    # TODO decide when downscale or not, add disable option to GUI popup and disable by default? or no? it breaks here for the browser for some reason, text is miniscule unreadable
     # image = image.copy()
     height, width = image.shape[:2]
 
     # set max safe textbox height threshold
     # target_height = 100
-    target_height = 30
+    target_height = 50 # TODO store target height per program
 
     # only downscale above threshold
     if height >= target_height:
@@ -24,8 +27,10 @@ def downscale(image):
         new_height = int(target_height)
 
         if config.debug:
+            folder = config.window_captures_folder
+            os.makedirs(folder, exist_ok=True)
             timestamp = time.strftime("%Y%m%d-%H%M%S")
-            cv2.imwrite(f"screenshots/NORMAL_{timestamp}.png", image)
+            cv2.imwrite(f"{folder}/NORMAL_{timestamp}.png", image)
 
         print(f"Downscaling crop from {height}px to {new_height}px")
 
@@ -35,7 +40,7 @@ def downscale(image):
         # TODO just edit renpy font size? and or hook straight into text stream from it
 
         if config.debug:
-            cv2.imwrite(f"screenshots/DOWNSCALE_{timestamp}.png", image)
+            cv2.imwrite(f"{folder}/DOWNSCALE_{timestamp}.png", image)
 
 
     # convert to ocr format
