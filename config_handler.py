@@ -1,9 +1,6 @@
-import json
-import os
 import threading
 
-CONFIG_FILE = "config.json"
-LOCAL_CONFIG_FILE = "config.local.json"
+from config_store import CONFIG_FILE, LOCAL_CONFIG_FILE, ConfigStore
 
 # TODO if statements for relevant places in code
 # TODO save and keep or delete screenshots and audio depending on level
@@ -43,8 +40,7 @@ class _Config:
             return
 
         self.filename = filename
-        self.json = None
-        self.load(filename)
+        self.store = ConfigStore(filename)
 
         self.project_name = self.get("PROJECT_NAME")
         self.window_captures_folder = self.get("WINDOW_CAPTURES_FOLDER") or "window_captures"
@@ -123,55 +119,38 @@ class _Config:
 
 
     def load_json(self, filename):
-        if os.path.exists(filename):
-            print(f"Loading config from {filename}")
-            try:
-                with open(filename, 'r') as f:
-                    self.json = json.load(f)
-
-                    if filename == CONFIG_FILE:
-                        print(f"Creating local {LOCAL_CONFIG_FILE} file automatically...")
-                        with open(LOCAL_CONFIG_FILE, 'w') as f:
-                            json.dump(self.json, f, indent=4)
-
-                    return True
-            except Exception as e:
-                print(f"Failed to load config from {filename}, error: {e}")
-                pass
-        else:
-            print(f"CONFIG not found")
-            return None
+        return self.store.load_json(filename)
 
 
     def get(self, key):
-        if key in self.json:
-            return self.json[key]
-        print(f"ERROR: Could not find {key} in config")
-        return None
+        return self.store.get(key)
 
     def load(self, filename):
-        loaded = False
-        if os.path.exists(LOCAL_CONFIG_FILE):
-            loaded = self.load_json(LOCAL_CONFIG_FILE)
-        if not loaded:
-            loaded = self.load_json(CONFIG_FILE)
-        return loaded
+        return self.store.load(filename, prefer_local=filename == CONFIG_FILE)
 
     def update(self, key, value):
-        print(f"Updating {key} to {value}")
-        self.json[key] = value
+        self.update_many({key: value})
 
-        prop = getattr(type(self), key, None)
+    def update_many(self, values):
+        prepared = {}
+        attrs = {}
+        for key, value in values.items():
+            attr = _LIVE_FIELDS.get(key)
+            if attr is not None:
+                value = _coerce_live(attr, value)
+            prepared[key] = value
+            attrs[key] = attr
 
-        # only use setattr() if there's no specific setter for it, otherwise use its specific setters
-        if isinstance(prop, property) and prop.fset is not None:
-            prop.fset(self, value)
-        else:
-            setattr(self, key, value)
+        self.store.update_many(prepared, LOCAL_CONFIG_FILE)
 
-        with open(LOCAL_CONFIG_FILE, 'w') as f: # TODO make local config file variable dynamic here
-            json.dump(self.json, f, indent=4)
-        print(f"Saved {key} to {LOCAL_CONFIG_FILE}")
+        for key, value in prepared.items():
+            attr = attrs[key]
+            target = attr if attr is not None else key
+            prop = getattr(type(self), target, None)
+            if isinstance(prop, property) and prop.fset is not None:
+                prop.fset(self, value)
+            else:
+                setattr(self, target, value)
 
     @staticmethod
     def get_window_key(window_title, affix=""):
@@ -209,7 +188,11 @@ class _Config:
         return self.get_window_selections(self.target_window_title)
 
     def has_keys(self, *keys):
-        return all(key in self.json for key in keys)
+        return self.store.has_keys(*keys)
+
+    @property
+    def json(self):
+        return self.store.json
 
     # turns key into proper json format and style
     @staticmethod
