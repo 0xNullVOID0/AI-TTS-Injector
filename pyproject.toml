@@ -5,6 +5,7 @@ requires-python = ">=3.12"
 dependencies = [
     "audiosegment>=0.23.0",
     "customtkinter>=5.2.2",
+    "docker>=7.1.0",
     "enchant>=0.0.1",
     "easyocr",
     "fasttext-wheel>=0.9.2",

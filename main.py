@@ -5,6 +5,7 @@ import os
 import threading
 import time
 from ctypes import wintypes
+from pathlib import Path
 
 import keyboard
 import mss
@@ -19,6 +20,7 @@ from mkb_handler import mkb
 from profiler import profiler
 from queue_handler import q
 from snipping_selector import SnippingSelector
+from startup_checks import ensure_backend_ready
 from window_handler import Window, user32, WinEventProcess, EVENT_WINDOW_FOCUS_CHANGED, EVENT_SYSTEM_FOREGROUND
 import popup_gui
 
@@ -163,7 +165,8 @@ def on_left_click():
 def run():
     global hook
 
-    os.makedirs("window_captures", exist_ok=True) # create folder if doesn't exist already
+    # os.makedirs(config.window_captures_folder, exist_ok=True) # create folder if doesn't exist already
+    os.makedirs(f"{config.window_captures_folder}", exist_ok=True) # create folder if doesn't exist already
 
     process = WinEventProcess(Window.on_focus_change)
 
@@ -186,8 +189,11 @@ def run():
 
     print(f"DEBUG mode: {config.debug}")
 
-    if not docker_manager.ensure_service_running("kokoro-tts"):
-        raise RuntimeError("Could not start the Kokoro Docker Compose service")
+    # TODO add more time.sleep() in places that require it, reduce cpu spam and infinite polling?
+
+    # Don't start if user doesn't or can't pick, setup, start or install their TTS backend API
+    if not ensure_backend_ready(docker_manager, panel.root):
+        return
 
     # bind start/stop functions from queue handler to config
     config.on_start = q.start

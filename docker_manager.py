@@ -25,19 +25,186 @@ class DockerManager:
         self.compose_environment = dict(compose_environment or {})
         self._client = client
         self._owns_client = client is None
+        self.last_error = None
 
-    def _get_client(self):
+    def _get_client(self, log_errors=True):
         try:
             if self._client is None:
                 self._client = docker.from_env(timeout=5)
             self._client.ping()
+            self.last_error = None
             return self._client
         except docker.errors.DockerException as error:
-            logger.warning("Docker Engine unavailable: %s", error)
+            if log_errors:
+                logger.warning("Docker Engine unavailable: %s", error)
+            self.last_error = str(error)
             if self._client is not None and self._owns_client:
                 self._client.close()
             self._client = None
             return None
+
+    def is_engine_running(self, quiet=False):
+        """Return True when the Docker API responds to a ping."""
+        return self._get_client(log_errors=not quiet) is not None
+
+    def _docker_cli_path(self):
+        """Return the docker CLI path, including a Docker Desktop fallback."""
+        docker_cli = shutil.which("docker")
+        if docker_cli:
+            return Path(docker_cli)
+
+        desktop_path = self._docker_desktop_path()
+        if desktop_path is not None:
+            candidate = desktop_path.parent / "resources" / "bin" / "docker.exe"
+            if candidate.is_file():
+                return candidate
+        return None
+
+    def _compose_status(self, docker_cli):
+        """Return (available, version, error) for the Compose v2 plugin."""
+        try:
+            result = subprocess.run(
+                [docker_cli, "compose", "version", "--short"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired) as error:
+            return False, None, str(error)
+
+        version = result.stdout.strip() or None
+        if result.returncode == 0:
+            return True, version, None
+        error = (result.stderr or result.stdout).strip() or f"exit code {result.returncode}"
+        return False, None, error
+
+    @staticmethod
+    def _docker_desktop_path(docker_cli=None):
+        """Return the Docker Desktop executable path when it is installed."""
+        if os.name != "nt":
+            return None
+
+        candidates = []
+        program_files = os.environ.get("ProgramFiles")
+        if program_files:
+            candidates.append(Path(program_files) / "Docker" / "Docker" / "Docker Desktop.exe")
+        local_app_data = os.environ.get("LOCALAPPDATA")
+        if local_app_data:
+            candidates.append(Path(local_app_data) / "Programs" / "DockerDesktop" / "Docker Desktop.exe")
+            candidates.append(Path(local_app_data) / "Docker" / "Docker Desktop.exe")
+        if docker_cli:
+            cli_path = Path(docker_cli)
+            candidates.append(cli_path.parent.parent.parent / "Docker Desktop.exe")
+            candidates.append(cli_path.parent / "Docker Desktop.exe")
+
+        for candidate in candidates:
+            if candidate.is_file():
+                return candidate
+        return None
+
+    @staticmethod
+    def _classify_engine_error(error):
+        text = (error or "").lower()
+        if any(marker in text for marker in (
+            "cannot connect",
+            "error during connect",
+            "createfile",
+            "cannot find the file",
+            "is the docker daemon running",
+            "connection refused",
+            "no such file",
+        )):
+            return "not_running"
+        if "permission denied" in text or "access is denied" in text:
+            return "permission"
+        return "error"
+
+    def check_docker(self):
+        """Report whether Docker, Compose, and the engine are usable."""
+        docker_cli = self._docker_cli_path()
+        docker_cli_text = str(docker_cli) if docker_cli else None
+        compose_installed, compose_version, compose_error = (
+            self._compose_status(docker_cli_text) if docker_cli_text else (False, None, None)
+        )
+        engine_running = self.is_engine_running()
+        desktop_path = self._docker_desktop_path(docker_cli_text)
+
+        if docker_cli is None:
+            reason = "cli_missing" if desktop_path is not None else "not_installed"
+        elif not engine_running:
+            reason = self._classify_engine_error(self.last_error)
+        elif not compose_installed:
+            reason = "compose_missing"
+        else:
+            reason = "ready"
+
+        return {
+            "sdk_installed": True,
+            "cli_installed": docker_cli is not None,
+            "compose_installed": compose_installed,
+            "engine_running": engine_running,
+            "desktop_installed": desktop_path is not None,
+            "desktop_path": str(desktop_path) if desktop_path else None,
+            "ready": reason == "ready",
+            "reason": reason,
+            "error": self.last_error or compose_error,
+            "compose_version": compose_version,
+            "docker_path": docker_cli_text,
+        }
+
+    def describe_status(self, status=None):
+        """Return an actionable explanation for a check_docker result."""
+        status = status or self.check_docker()
+        reason = status["reason"]
+        if reason == "ready":
+            return "Docker is ready."
+        if reason == "not_installed":
+            return (
+                "Docker is not installed. Install Docker Desktop, or install Docker Engine "
+                "with the Compose plugin, from https://docs.docker.com/desktop/ and start it."
+            )
+        if reason == "cli_missing":
+            return (
+                "Docker Desktop appears to be installed, but the docker CLI could not be found. "
+                "Repair or reinstall Docker Desktop so 'docker' is available."
+            )
+        if reason == "compose_missing":
+            return (
+                "Docker Compose v2 is not available. Update Docker Desktop or install "
+                "the compose plugin, then confirm 'docker compose version' works."
+            )
+        if reason == "not_running":
+            if status["desktop_installed"]:
+                return "Docker Desktop is installed but its engine is not running. Start Docker Desktop and retry."
+            return "The Docker engine is not running. Start Docker Desktop or the Docker service, then retry."
+        if reason == "permission":
+            return "Docker Engine denied access. Check Docker Desktop permissions or your docker group membership."
+        return f"Docker Engine could not be reached: {status['error'] or 'unknown error'}"
+
+    def start_docker_desktop(self, timeout=120, poll_interval=2):
+        """Launch Docker Desktop on Windows and wait for the engine to respond."""
+        desktop_path = self._docker_desktop_path(self._docker_cli_path())
+        if desktop_path is None:
+            return False
+
+        try:
+            subprocess.Popen(
+                [str(desktop_path)],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except OSError as error:
+            logger.error("Could not start Docker Desktop: %s", error)
+            return False
+
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if self.is_engine_running(quiet=True):
+                return True
+            time.sleep(poll_interval)
+        logger.error("Docker Desktop did not become ready within %s seconds", timeout)
+        return False
 
     def _get_service_container(self, client, service_name):
         containers = client.containers.list(
@@ -100,13 +267,13 @@ class DockerManager:
             logger.error("Docker Compose file not found: %s", self.compose_file)
             return False
 
-        docker_cli = shutil.which("docker")
+        docker_cli = self._docker_cli_path()
         if docker_cli is None:
             logger.error("Docker CLI is not installed or is not on PATH")
             return False
 
         command = [
-            docker_cli,
+            str(docker_cli),
             "compose",
             "--project-name",
             self.project_name,
@@ -183,6 +350,7 @@ class DockerManager:
         """Start a service if needed and wait for it to become healthy."""
         status = self.get_service_status(service_name)
         if not status["available"]:
+            logger.error("%s", self.describe_status())
             return False
 
         if status["state"] != "running":

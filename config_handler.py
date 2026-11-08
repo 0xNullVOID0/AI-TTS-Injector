@@ -47,6 +47,7 @@ class _Config:
         self.load(filename)
 
         self.project_name = self.get("PROJECT_NAME")
+        self.window_captures_folder = self.get("WINDOW_CAPTURES_FOLDER") or "window_captures"
         self.audio_folder = self.get("AUDIO_FOLDER")
         self.target_window_title = self.get("TARGET_WINDOW_TITLE")
         self.target_window_path = self.get("TARGET_WINDOW_PATH")
