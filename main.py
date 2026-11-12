@@ -133,7 +133,6 @@ def on_trigger(p):
     elif p == "start_ocr":
         with config.testing_lock:
             config.tested = False
-    elif p == "start_ocr":
         config.ocr = True
 
         # TODO better location? check if right like this(audio, download set)
@@ -192,8 +191,13 @@ def run():
     # TODO add more time.sleep() in places that require it, reduce cpu spam and infinite polling?
 
     # Don't start if user doesn't or can't pick, setup, start or install their TTS backend API
-    if not ensure_backend_ready(docker_manager, panel.root):
-        return
+    if config.active_tts_api == "KOKORO":
+        print("TTS API set to KOKORO")
+        if not ensure_backend_ready(docker_manager, panel.root):
+            return
+    else:
+        if config.active_tts_api == "FISH_AUDIO":
+            print("TTS API set to FISH AUDIO")
 
     # bind start/stop functions from queue handler to config
     config.on_start = q.start

@@ -1,9 +1,6 @@
-
 # 🎙️ AI-TTS-Injector
 
 > **Work in Progress:** An application-agnostic, Windows(currently) overlay that uses local OCR to capture unselectable on-screen text and inject dynamically synthesized speech via local or remote AI Voice APIs.
-
----
 
 ### 💡The Problem & Core Value
 
@@ -11,266 +8,203 @@ Most text-to-speech tools rely on hookable game engines, modding frameworks, or 
 
 Because it never injects(despite the name) code into or interacts with a program's binary files, it guarantees **near-universal compatibility** across virtually any software—from emulated classic games and indie titles lacking native voice acting, to comics, visual novels, web browsers, and digital readers. If Windows can render it on screen, this tool can read it aloud.
 
----
+## Features
 
-### ✨ Features & Current Capabilities
+- **Target-window tracking:** Hooks target application focus using Windows focus events so capture regions remain locked to your chosen window while avoiding programs on Blacklist.
+- **Region selection:** Save separate speaker-name and dialogue regions per window title.
+- **OCR:** EasyOCR extracts English text from captured screen regions.
+- **Text corrections:** Apply configured word corrections to OCR output.
+- **Smart Voice Mapping:** Automatically detects speaker/character names within OCR regions and routes lines to assigned custom voice profiles (`VOICE_MAP`).
+- **Multi-Engine Pipeline:** Support for local CUDA-accelerated models like Kokoro-FastAPI or external OpenAI-style `/v1/audio/speech` models/APIs like Fish Audio through OpenRouter  
+- **Queued playback:** Buffer generated WAV or PCM files and play them locally; skip, stop, and resume controls are available.
+- **Control panel:** A floating panel exposes runtime controls and opens the settings window.
 
-* **Window Locking:** Hooks target application focus so capture regions remain locked to your chosen window.
-* **Flexible Snipping & Regions:** Define and save targeted screen regions for dynamic text updates or trigger manual click-to-scan captures.
-* **Smart Voice Mapping:** Automatically detects speaker/character names within OCR regions and routes lines to assigned custom voice profiles (`VOICE_MAP`).
-* **Multi-Engine Pipeline:** Out-of-the-box support for local CUDA-accelerated models like Kokoro-FastAPI which is what most development has been based around but external OpenAI-style `/v1/audio/speech` models/APIs would basically be plug and play with possibly only minor vendor specific adjustments. Local ChatterboxTTS is still WIP and uncommitted  
-* **Queued Audio Playback:** Handles incoming voice lines through an asynchronous audio queue`.
-* **Always-on-Top Control Panel:** Compact overlay UI featuring autoplay toggles and interval settings, region selection control still needs to be added, just keybinds for that right now.
-
----
+Fish Audio currently uses its configured voice ID; per-speaker voice mapping is used with Kokoro. Autoplay controls are present but the autoplay workflow is not complete. Full-window OCR is experimental; configure name and dialogue regions for the intended workflow.
 
 ### ⚙️ How It Works
 
+```text
+┌─────────────────┐       ┌──────────────────┐       ┌──────────────────┐
+│ Target Window   │ ───>  │ Window Capture   │ ───>  │ EasyOCR Engine   │
+│ (selected app)  │       │ (name/text crops)│       │ (PyTorch / GPU)  │
+└─────────────────┘       └──────────────────┘       └────────┬─────────┘
+                                                               │
+┌─────────────────┐       ┌──────────────────┐       ┌────────▼─────────┐
+│ AudioPlayer     │ <───  │ Kokoro / Fish    │ <─────│ Text Corrections │
+│ (WAV / PCM)     │       │ VoiceEngine      │       │ + Voice Mapping  │
+└─────────────────┘       └──────────────────┘       └──────────────────┘
 ```
-┌─────────────────┐       ┌─────────────────┐       ┌─────────────────┐
-│ Target Window   │ ───>  │ EasyOCR Engine  │ ───>  │ Character Voice │
-│ (Window Capture)│       │ (PyTorch / GPU) │       │ Name Mapping    │
-└─────────────────┘       └─────────────────┘       └─────────────────┘
-                                                             │
-┌─────────────────┐       ┌─────────────────┐                │
-│ Local Audio     │ <───  │ Local / Remote  │ <──────────────┘
-│ Queue Playback  │       │ AI Voice API      │
-└─────────────────┘       └─────────────────┘
 
-```
+1. Lock the active application window as the target.
+2. Select the name and dialogue regions; coordinates are saved per window title.
+3. Enable OCR and click in the target window after the displayed line is ready.
+4. EasyOCR reads the configured regions, then configured text corrections are applied.
+5. The speaker name is matched against `VOICE_MAP`; unmatched names use the default Kokoro voice.
+6. `VoiceEngine` sends the text and selected voice to Kokoro or Fish Audio.
+7. The response is saved as an audio clip and handed to `AudioPlayer` for queued playback.
 
-1. **Window Focus Hook:** Locks onto the focused application using native WinEvent hooks (`pywin32`) which you can set as the target window to be watched and processed using the SET_TARGET_WINDOW keybind.
-2. **Region Snipping:** Captures designated visual areas for speaker names and dialogue text, persisting crop coordinates per window title.
-3. **OCR Processing:** Runs EasyOCR (CUDA-accelerated via PyTorch) on captured frame regions to extract raw text strings.
-4. **Speaker & Voice Mapping:** Matches parsed speaker names against configured voice profiles (`VOICE_MAP`) to assign target parameters.
-5. **TTS Dispatch:** Posts clean text payloads to a Kokoro-FastAPI (`/v1/audio/speech`) endpoint or custom remote HTTP API.
-6. **Audio Output:** Queues generated audio streams and handles local playback with skip/stop controls via `sounddevice`.
+## Project Status
 
-Optional path: Skip the local Kokoro setup and point `KOKORO_URL` at any compatible TTS HTTP API.
-
----
-
-### ⚠️ Current Project State
-
-This repository represents a working but still very much WIP base. Please keep in mind:
-
-* Currently targeted for **Windows environments**(heavy use of low level win32api).
-* Expect rough edges, non-standard reading orders (such as vertical manga text or multi-panel comics) are currently unoptimized, as custom text-flow modes are still in development.
-
----
-
-## Status
-
-| Area | State                                                                  |
-| --- |------------------------------------------------------------------------|
-| Window targeting + focus hook | Working                                                                |
-| Region snipping (name / text) | Working, persisted per window title                                    |
-| EasyOCR + image preprocess | Working, GPU assumed                                                   |
-| Kokoro-FastAPI auto-boot | Working on Windows (PowerShell start script)                           |
-| Remote / custom AI Voice API | Config-ready (`KOKORO_HOST` / `PORT` / `URL`)                          |
-| Playback queue, skip, stop | Working                                                                |
-| Live control panel | Partial (interval, autoplay, start/stop)                               |
-| Settings GUI & Voice Picker | Not built, currently managed via config files                          |
-| Non-Windows | Not supported at the moment (`pywin32`, Win32 event hooks, PowerShell) |
-| Extra engines | Kokoro active; Chatterbox branch WIP; Bark/F5 considered               
-
----
+| Area | State |
+| --- | --- |
+| Windows target selection and focus tracking | Implemented; Windows only |
+| Speaker and dialogue region selection | Implemented; coordinates persist per window title |
+| EasyOCR extraction | Integrated; accuracy and reading order need work for different configurations |
+| OCR text corrections | Configurable, currently word-based |
+| Kokoro-FastAPI backend | Managed Docker Compose startup and health check are implemented |
+| Fish Audio backend | OpenRouter client path is implemented; requires API key |
+| WAV and PCM playback | Queued playback with skip, stop, and resume controls |
+| Control panel | Available; some controls and runtime changes remain incomplete |
+| Non-Windows platforms | Not supported |
 
 ## Requirements
 
-### System
+- Windows 10 or 11.
+- Python 3.12 (locked to .12 due to dependency requirements)
+- [uv](https://docs.astral.sh/uv/)
+- NVIDIA GPU recommended for EasyOCR and required by the supplied GPU Kokoro container configuration.
+- Docker Desktop with Docker Compose v2 for the managed and easy Kokoro backend install (can point to local non docker install as well).
+- OpenRouter API key for Fish Audio.
 
-- Windows 10/11
-- Python **3.12+**
-- NVIDIA GPU recommended (EasyOCR `gpu=True` + Kokoro GPU start script)
-- [uv] for dependency install
-- A local [Kokoro-FastAPI](https://github.com/remsky/Kokoro-FastAPI) checkout **or** another OpenAI-compatible speech endpoint
+Windows PyTorch packages use the CUDA 12.8 package index configured in `pyproject.toml`. If that does not match your GPU driver environment, adjust the PyTorch index configuration before installing.
 
-### Python stack (from `pyproject.toml`)
+The main dependency groups are:
 
-- **TTS / audio:** `httpx`, `openai`, `sounddevice`, `soundfile`, `audiosegment`
-- **OCR / vision:** `easyocr`, `opencv-python`, `mss`, `numpy`, `torch`, `torchvision`, `torchaudio`
-- **Desktop:** `pywin32`, `pygetwindow`, `keyboard`, `mouse`, `pynput`, `customtkinter`, `screeninfo`
-- **Misc:** `fasttext-wheel`, `pyenchant`, `websocket-client`, `nest-asyncio`
-
-PyTorch on Windows is pinned to the **cu128** index in `pyproject.toml`. Change that index if your CUDA version differs.
-
----
+- **OCR and capture:** `easyocr`, `opencv-python`, `mss`, `numpy`, `torch`, `torchvision`, and `torchaudio`.
+- **Speech and audio:** `openai`, `sounddevice`, `soundfile`, and `audiosegment`.
+- **Windows UI and input:** `pywin32`, `pygetwindow`, `keyboard`, `mouse`, `pynput`, `customtkinter`, and `screeninfo`.
+- **Service and utilities:** Docker SDK, `httpx`, `websocket-client`, and supporting packages listed in `pyproject.toml`.
 
 ## Install
 
-### 1. Clone this repo
-
-```bash
+```powershell
 git clone https://github.com/0xNullVOID0/AI-TTS-Injector.git
 cd AI-TTS-Injector
-```
-
-### 2. Create the env and install deps
-
-```bash
 uv sync
 ```
 
-If `uv sync` pulls the wrong Torch build, install CUDA wheels yourself, then sync the rest:
-
-```bash
-uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
-uv sync
-```
-
-EasyOCR will download English detection/recognition weights on first run.
-
-### 3. Install Kokoro-FastAPI (local backend)
-
-This project does **not** vendor Kokoro. It launches an existing install.
-
-1. Clone and set up [Kokoro-FastAPI](https://github.com/remsky/Kokoro-FastAPI) somewhere on disk.
-2. Confirm its GPU/CPU start script works on its own (`start-gpu.ps1` is the default this repo looks for).
-3. Point this project at that folder in config (next section).
-
-On boot, `kokoro_api.py` checks `KOKORO_HOST:KOKORO_PORT`. If nothing is listening it runs:
-
-```text
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File <KOKORO_FOLDER>/<KOKORO_START_SCRIPT>
-```
-
-from a cleaned environment so this repo’s `.venv` does not leak into Kokoro’s.
-
-If the port is already open, it just connects.
-
-### 4. Custom TTS API instead of local Kokoro
-
-You can skip auto-boot and talk to any server that accepts a Kokoro / OpenAI-style speech POST.
-
-Set these in `config.json` / `config.local.json`:
-
-```json
-"KOKORO_HOST": "http://localhost",
-"KOKORO_PORT": 8880,
-"KOKORO_URL": "http://localhost:8880/v1/audio/speech"
-```
-
-`kokoro_tts.py` sends:
-
-```json
-{
-  "model": "kokoro",
-  "input": "<ocr text>",
-  "voice": "<voice id>",
-  "lang_code": "a",
-  "cleaner": "american_english",
-  "response_format": "wav",
-  "stream": false
-}
-```
-
-If your backend uses a different schema, adapt `kokoro_tts.py` and `queue_handler.py` (`requests.post`).
-
----
-
-## Configure
-
-First run copies `config.json` → `config.local.json`. Edits at runtime go to the local file (gitignored). Keep secrets and machine paths there.
-
-Important keys:
-
-| Key | Meaning |
-| --- | --- |
-| `DEBUG` | `"True"` keeps the Kokoro process alive after this app exits. `"False"` kills it on shutdown. |
-| `KOKORO_FOLDER` | Absolute path to your Kokoro-FastAPI checkout |
-| `KOKORO_START_SCRIPT` | Script to launch (default `start-gpu.ps1`) |
-| `KOKORO_HOST` / `KOKORO_PORT` / `KOKORO_URL` | Backend address |
-| `DEFAULT_VOICE` | Fallback Kokoro voice (`af_bella`, `af_heart`, …) |
-| `VOICE_MAP` | `{ "CharacterName": "kokoro_voice_id" }` |
-| `TARGET_WINDOW_TITLE` | Last locked window title |
-| `BLACKLIST` | Window titles that cannot become the target (e.g. IDE) |
-| `INTERVAL` / `AUTOPLAY_INTERVAL` | Seconds between scans / autoplay ticks |
-| `AUDIO_FOLDER` | Where generated WAVs are written |
-| `KEYBINDS` | Intended binds (not all are wired yet; see hotkeys below) |
-
-Per-window snip regions are stored as `<WINDOW_TITLE>_NAME_COORDS` and `<WINDOW_TITLE>_TEXT_COORDS`.
-
----
+EasyOCR downloads its English model files the first time it is initialized. No separate Kokoro checkout or start script is required; the managed Kokoro backend is defined by this project's Compose configuration.
 
 ## Run
 
-```bash
+For the Kokoro backend, start Docker Desktop, then run:
+
+```powershell
 uv run python main.py
 ```
 
-Flow on start:
+At startup, the app checks whether the configured Kokoro endpoint is healthy. If it is not, the app checks Docker and offers to start the managed Kokoro service. If the service cannot be made available, the app remains open in degraded mode; speech will not work until a backend is reachable. Selecting Fish Audio does not require the managed Kokoro service.
 
-1. Load config (local override if present).
-2. Register the WinEvent focus hook.
-3. Bind hotkeys / mouse click.
-4. Start the control-panel thread.
-5. Boot or attach to the TTS API.
-6. Pump Windows messages until you Ctrl+C.
+Startup sequence:
 
----
+1. Load defaults or the local settings file.
+2. Register the Windows focus hook and keyboard/mouse bindings.
+3. Create the floating control panel.
+4. Check the selected speech backend and, when needed, prompt for Docker readiness.
+5. Run the Windows message pump and control panel event loop.
+
+## Configuration
+
+Defaults are stored in `config.json`. If `config.local.json` does not exist on first load, it is created from the defaults. Runtime setting changes are written to `config.local.json`; keep API keys and machine-specific paths there rather than in the defaults file.
+
+For Fish Audio, the relevant settings can look like:
+
+```json
+{
+  "ACTIVE_TTS_API": "FISH_AUDIO",
+  "OPENROUTER_API_KEY": "your-key",
+  "FISH_MODEL": "fish-audio/drama-3",
+  "FISH_VOICE": "your-voice-id"
+}
+```
+
+| Setting | Purpose |
+| --- | --- |
+| `ACTIVE_TTS_API` | Select `KOKORO` or `FISH_AUDIO`. |
+| `KOKORO_HOST` / `KOKORO_PORT` | Kokoro service address. |
+| `DEFAULT_KOKORO_VOICE` | Default voice used by Kokoro. |
+| `FISH_MODEL` / `FISH_VOICE` | Fish Audio model and voice ID. |
+| `OPENROUTER_API_KEY` | Credential for Fish Audio requests. |
+| `VOICE_MAP` | Map speaker names to Kokoro voice IDs. |
+| `TARGET_WINDOW_TITLE` | The selected target window. |
+| `BLACKLIST` | Title fragments that prevent a window from being targeted. |
+| `KEYBINDS` | Optional hotkey overrides. |
+| `INTERVAL` / `AUTOPLAY_INTERVAL` | Scan and autoplay timing values. |
+| `AUDIO_FOLDER` | Destination for generated audio files. |
+| `WINDOW_CAPTURES_FOLDER` | Destination for debug captures. |
+| `GUI_*` | Control-panel hotkey, position, size, opacity, and topmost behavior. |
+
+Per-window selection coordinates are stored in `config.local.json` under generated `<WINDOW_TITLE>_NAME_COORDS` and `<WINDOW_TITLE>_TEXT_COORDS` keys.
 
 ## Usage
 
-1. Focus the game / reader window.
-2. **Shift + .** — lock that window as the target (skipped if the title is blacklisted).
-3. **Shift + [** — snip the **name** region.
-4. **Shift + ]** — snip the **text** region.
-5. **Shift + Up** — enable OCR processing.
-6. Left-click inside the target window — capture, OCR, speak (after a short delay so the line can settle).
-7. **Scroll Lock** — toggle autoplay (only if OCR is on).
-8. **Shift + Home** — show / hide the control panel (interval sliders, system loop, autoplay).
-
-Playback:
+Default hotkeys:
 
 | Key | Action |
 | --- | --- |
-| Right | Skip current line |
-| Down | Stop queue / playback |
-| Up | Resume queue |
+| `Shift+'` | Set the active window as the target. |
+| `Shift+[` | Select the speaker-name region. |
+| `Shift+]` | Select the dialogue-text region. |
+| `Shift+Up` | Enable OCR processing. |
+| `Shift+Down` | Disable OCR processing. |
+| `Shift+Home` | Show or hide the control panel. |
+| `Shift+T` | Toggle testing mode. |
+| `Right` | Skip the currently playing clip. |
+| `Down` | Stop queue processing and playback. |
+| `Up` | Resume queue processing and playback. |
 
-If name + text regions are not set, the whole window is OCR’d and `DEFAULT_VOICE` is used.
+Typical setup:
 
----
+1. Start the app and choose a target window with `Shift+'`.
+2. Use `Shift+[` and `Shift+]` to select the speaker and dialogue regions.
+3. Enable OCR with `Shift+Up`.
+4. Left-click inside the active target window to scan the displayed dialogue.
+5. Use the playback controls to skip, stop, or resume audio.
 
-## Project layout
+Hotkeys can be overridden in the `KEYBINDS` object in the settings GUI or `config.local.json`.
 
-```text
-main.py               Entry, WinEvent hook, hotkey dispatch
-config_handler.py     Singleton config + config.local.json persistence
-kokoro_api.py         Detect / boot Kokoro-FastAPI
-kokoro_tts.py         Build speech request, push to download queue
-ocr.py                EasyOCR, name/text crops, voice lookup
-image_processor.py    Pre-OCR image cleanup
-text_processor.py     OCR text cleanup
-queue_handler.py      Download / play / OCR worker threads
-window_handler.py     Capture, focus, process path, blacklist
-snipping_selector.py  Overlay region picker
-popup_gui.py          Always-on-top control panel
-mkb_handler.py        Keyboard + mouse binds
-autoplay.py           Autoplay loop
-AudioHandler.py       Audio helpers (early)
-logger.py / profiler.py / utils.py
-assets/sfx            Placeholder SFX dir
+## Limitations and Debugging
+
+- Windows-specific hooks and input libraries mean other platforms are not supported.
+- OCR text grouping and reading order can be incorrect, especially with dense pages, multiple columns, or vertical text.
+- `DEBUG` enables saving selected name and dialogue crops to `WINDOW_CAPTURES_FOLDER` for inspection.
+- Audio output files are written under `AUDIO_FOLDER`.
+- If the control panel opens but no speech plays, verify that the selected backend is available and check the app's console output.
+
+## Development and Tests
+
+Run the test suite with:
+
+```powershell
+uv run python -m unittest discover -s tests -p "test_*.py"
 ```
 
----
+Run Pyright with:
 
-## Debug vs production
+```powershell
+uvx pyright
+```
 
-- `DEBUG=True`: Kokoro is started in a new process group and is **not** killed when `main.py` exits. Useful while iterating.
-- `DEBUG=False`: Kokoro is terminated on exit via `atexit`.
-- Debug also writes name/text crop PNGs under `screenshots/` when a non-duplicate line is scanned.
+Pyright currently checks `audio_player.py` and `voice_engine.py` while type coverage is expanded incrementally.
 
----
+## Project Layout
 
-## Roadmap
+```text
+main.py               Application entry point and Windows event dispatch
+ocr.py                Window-region OCR and speaker lookup
+text_processor.py     OCR text corrections
+image_processor.py    Pre-OCR image preparation
+voice_engine.py       TTS backend client and synthesis
+audio_player.py       Audio clip metadata, decoding, and playback
+queue_handler.py      Download and OCR queue coordination
+docker_manager.py     Docker Compose lifecycle and service status
+startup_checks.py     TTS backend readiness checks
+config_handler.py     Runtime settings facade
+config_store.py       JSON settings persistence
+popup_gui.py          Floating control panel
+window_handler.py     Window selection, capture, and focus events
+snipping_selector.py  Region selection overlay
+mkb_handler.py        Keyboard and mouse bindings
+autoplay.py           Experimental autoplay loop
+```
 
-- Full settings GUI (voices, target window, OCR tuning)
-- Better OCR post-process (scale, dictionary check, optional LLM fix-up)
-- Per-window OCR profiles (text size, vertical layout, text and speech order)
-- Speech rate hotkeys
-- Optional Bark / Orpheus backends
-- Live translation
-
----

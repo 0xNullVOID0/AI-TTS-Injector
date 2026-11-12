@@ -157,25 +157,19 @@ class _Config:
         self.update_many({key: value})
 
     def update_many(self, values):
-        prepared = {}
-        attrs = {}
-        for key, value in values.items():
-            attr = _LIVE_FIELDS.get(key)
-            if attr is not None:
-                value = _coerce_live(attr, value)
-            prepared[key] = value
-            attrs[key] = attr
+            prepared = {}
+            for key, value in values.items():
+                value = _coerce_live(key, value)
+                prepared[key] = value
 
-        self.store.update_many(prepared, LOCAL_CONFIG_FILE)
+            self.store.update_many(prepared, LOCAL_CONFIG_FILE)
 
-        for key, value in prepared.items():
-            attr = attrs[key]
-            target = attr if attr is not None else key
-            prop = getattr(type(self), target, None)
-            if isinstance(prop, property) and prop.fset is not None:
-                prop.fset(self, value)
-            else:
-                setattr(self, target, value)
+            for key, value in prepared.items():
+                prop = getattr(type(self), key, None)
+                if isinstance(prop, property) and prop.fset is not None:
+                    prop.fset(self, value)
+                else:
+                    setattr(self, key, value)
 
     @staticmethod
     def get_window_key(window_title, affix=""):
