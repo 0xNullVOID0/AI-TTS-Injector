@@ -14,6 +14,28 @@ debug_levels = {
     5: "CRITICAL",
 }
 
+_BOOL_ATTRS = {"debug", "testing", "media_cleanup"}
+_FLOAT_ATTRS = {"interval", "autoplay_interval", "speech_speed", "media_max_age_hours", "media_max_folder_mb"}
+_INT_ATTRS = {"kokoro_port", "media_max_files"}
+
+def as_bool(value, default=False):
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return default
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _coerce_live(attr, value):
+    if attr in _BOOL_ATTRS:
+        return as_bool(value)
+    if attr in _FLOAT_ATTRS:
+        return float(value)
+    if attr in _INT_ATTRS:
+        return int(value)
+    return value
+
+
 # TODO make into actual proper singleton
 # TODO variable event hooks
 
@@ -50,13 +72,14 @@ class _Config:
         self.target_window = None
         self.active_window = None
         self.active_tts_api = self.get("ACTIVE_TTS_API") or "KOKORO"
-        self.default_voice = self.get("DEFAULT_VOICE")
+        stored = self.store.json or {}
+        self.default_voice = stored.get("DEFAULT_VOICE") or stored.get("DEFAULT_KOKORO_VOICE") or "af_bella"
         self.voice_map = self.get('VOICE_MAP') # map character names to the desired Kokoro voice codes
         self.last_text = None
         self.interval = float(self.get("INTERVAL")) # autoplay interval
         self._running = True
         self.next = False
-        self.debug = str(self.get("DEBUG")).lower() == "true" # convert json true/false string to actual python bool
+        self.debug = as_bool(self.get("DEBUG"))
         self.ocr_counter = 0 # TOOD move
         self.characters = self.get("CHARACTERS")
         self.lookup_cache = self.get("LOOKUP_CACHE")
@@ -71,7 +94,9 @@ class _Config:
         self.on_start = None
         self.on_stop = None
         self.ocr = None
-
+        self.testing = as_bool(self.get("TESTING"))
+        self.tested = False
+        self.testing_lock = threading.Lock()
         # Voice APIs
         self.openrouter_base = "https://openrouter.ai/api/v1"
         self.openrouter_api_key = self.get("OPENROUTER_API_KEY") or ""
