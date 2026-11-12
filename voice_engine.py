@@ -17,7 +17,7 @@ class VoiceEngine():
         self.model: str = "kokoro"
         self.response_format: ResponseFormat = "pcm"
         self.extra_body: dict[str, Any] | None = None
-        self.api: str | None = None
+        self.api: str | None = config.active_tts_api
 
         # PCM has no header so set format metadata for playback, gets adjusted per Voice API
         self.sample_rate: int | None = 44100
@@ -31,6 +31,7 @@ class VoiceEngine():
         # TODO: add more voice API clients here, maybe a factory pattern or strategy pattern for different APIs
         self.api = config.active_tts_api
         match self.api:
+            # TODO handle non options correctly, TODO make it an enum 
             case "KOKORO": # Local self hosted Kokoro
                 self.model = "kokoro"
                 self.response_format = "wav"
@@ -58,6 +59,7 @@ class VoiceEngine():
                 return OpenAI(base_url=config.openrouter_base, api_key=config.openrouter_api_key, timeout=10, max_retries=1,
                               default_headers={"X-OpenRouter-Title": config.project_name, # "HTTP-Referer": "https://github.com/0xNullVOID0/AI-TTS-Injector", # pyright: ignore[reportArgumentType]
                 })
+            # TODO add default case where none is set?
             case _:
                 raise ValueError(f"Unknown ACTIVE_TTS_API: {self.api}")
             # case "ELEVENLABS":

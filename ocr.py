@@ -23,6 +23,11 @@ ocr_counter = 0
 
 # TODO resize ocr image and other ocr pre and or post processing for more accurate scans
 
+# TODO move to global config
+ANSI_GREEN = "\033[92m"
+ANSI_RED = "\033[91m"
+ANSI_RESET = "\033[0m"
+
 @profiler.time_profile
 def send(text, voice):
     # prevent empty requests
