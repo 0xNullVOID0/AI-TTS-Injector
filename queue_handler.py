@@ -1,55 +1,52 @@
 import io
-import os
 import queue
 import threading
-import numpy as np
-import sounddevice as sd
+from pathlib import Path
+
 from openai import APIConnectionError, APIStatusError
 from pydub import AudioSegment
 
-import ocr
+from audio_player import AUDIO_FORMATS, AudioClip, AudioPlayer
 from config_handler import config
 from profiler import profiler
 from voice_engine import voice_engine
 
 
 class _QueueHandler():
-    def __init__(self):
-        self.audio_queue = queue.Queue(100)
-        self.download_queue = queue.Queue(10)
-        self.ocr_queue = queue.Queue(50)
-        self.downloader = None
-        self.audio_player = None
-        self.ocr_worker = None
-        self.audio_played_counter = 0
+    def __init__(self) -> None:
+        self.download_queue: queue.Queue[dict[str, str]] = queue.Queue(10)
+        self.ocr_queue: queue.Queue[object] = queue.Queue(50)
+        self.downloader: threading.Thread | None = None
+        self.ocr_worker: threading.Thread | None = None
+        self.audio_player = AudioPlayer()
         self.request_counter = 0
         self.succ_request_counter = 0
-        self.buffer = 0
-        self.buffer_threshold = 5000 # ms
-        self.tier = 0 # tier/stage?
-        self.stage = 0
 
         # set global events for easy start/stop
-        self.audio_stop_event = threading.Event()
         self.download_stop_event = threading.Event()
         self.ocr_worker_stop_event = threading.Event()
-        
+
+    @property
+    def audio_queue(self) -> queue.Queue[AudioClip]:
+        return self.audio_player.audio_queue
+
+    @property
+    def audio_played_counter(self) -> int:
+        return self.audio_player.played
+
 
     # call resume instead?
     # start all queues and worker threads
     @profiler.time_profile
-    def start(self):
+    def start(self) -> None:
         # prevent duplicate toggles
         if not config.running:
             print('Starting Queue worker')
             config.running = True
-            # TODO turn both more into components that can be enabled/disabled too?
-            self.audio_stop_event.clear()
             self.download_stop_event.clear()
 
-            # re set worker threads
             self.setDownloader()
-            self.setAudioPlayer()
+            self.audio_player.start()
 
             print(f'Resuming: {config.running}')
 
@@ -60,59 +57,37 @@ class _QueueHandler():
         else:
             print("NOT starting OCR since its disabled")
 
-
-
-
-    # stop all queues and worker threads
     @profiler.time_profile
-    def stop(self):
+    def stop(self) -> None:
         # prevent duplicate toggles
         if config.running:
             print('Pausing/Stopping Queue workers/threads')
             config.running = False
-            self.audio_stop_event.set()
             self.download_stop_event.set()
             self.ocr_worker_stop_event.set()
-            sd.stop()  # force audio stop
+            self.audio_player.stop()
 
         config.running = False
         print(f'Stopped: {config.running}')
 
     @profiler.time_profile
-    def skip(self):
-        self.audio_stop_event.set()
-        print(f'Skipping')
+    def skip(self) -> None:
+        self.audio_player.skip()
+        print('Skipping')
 
     @profiler.time_profile
-    def disable_ocr(self):
+    def disable_ocr(self) -> None:
         if config.ocr:
             print('[Queue] Disabling OCR')
             self.ocr_worker_stop_event.set()
             config.ocr = False
 
-
-    def increaseBuffer(self):
-        # TODO buffer only possible if same character keeps talking, the moment name switches u gotta stop and reset, due to different voices, or only do a voice difference check not even name
-        return True
-    
-    # for AUDIO stream
-    def add_smooth_fade_to_stream(self, audio):
-        # TODO add to audio before last one or add it beforehand
-        # A tiny silent buffer (e.g., 50ms of silence)
-        # TODO adjust KHz based on audio's
-        SILENCE_PADDING = np.zeros(int(44100 * 0.05), dtype=np.int16)
-
-        print("Appending silence padding to avoid cracking...")
-        return np.concatenate([SILENCE_PADDING, audio])
-
-    # TODO finish audio class and move stuff like this to it
-    # TODO still neccesary? or just kokoro
-
-    # TODO finish audio class and move stuff like this to it
     @profiler.time_profile
-    def add_smooth_fade(self, raw_audio_bytes, audio_format):
+    def add_smooth_fade(self, raw_audio_bytes: bytes, audio_format: str) -> bytes:
         try:
             if audio_format == "pcm":
+                if voice_engine.sample_rate is None:
+                    raise ValueError("PCM audio requires a sample rate")
                 audio = AudioSegment(
                     data=raw_audio_bytes,
                     sample_width=voice_engine.sample_width,
@@ -138,12 +113,16 @@ class _QueueHandler():
             print(f"[AUDIO] ERROR Failed to smooth audio: {e}")
             return raw_audio_bytes  # return original in case of error
 
-    def add(self, item, item_type):
+    def add(self, item: object, item_type: str) -> None:
         print(f"Adding {item_type} to queue: {item}")
         if item_type == 'audio':
-            self.audio_queue.put(item)
-            print(f"{item_type} queue size: {self.audio_queue.qsize()}")
+            if not isinstance(item, AudioClip):
+                raise TypeError("Audio queue items must be AudioClip instances")
+            self.audio_player.add(item)
+            print(f"{item_type} queue size: {self.audio_player.qsize}")
         elif item_type == 'download':
+            if not isinstance(item, dict):
+                raise TypeError("Download queue items must be dictionaries")
             self.download_queue.put(item)
             print(f"{item_type} queue size: {self.download_queue.qsize()}")
         elif item_type == 'ocr':
@@ -151,7 +130,7 @@ class _QueueHandler():
             print(f"{item_type} queue size: {self.ocr_queue.qsize()}")
 
     @profiler.time_profile
-    def dl(self, download_task):
+    def dl(self, download_task: dict[str, str]) -> None:
         try:
             self.request_counter += 1
             print(f"Request counter: {self.request_counter}")
@@ -160,29 +139,36 @@ class _QueueHandler():
             self.succ_request_counter += 1
             print(f"Successful request counter: {self.succ_request_counter}")
 
-            folder = config.get("AUDIO_FOLDER")
-            os.makedirs(folder, exist_ok=True)
+            folder = Path(config.get("AUDIO_FOLDER") or "saved_audio")
+            folder.mkdir(parents=True, exist_ok=True)
             audio_format = voice_engine.response_format.lower()
-            if audio_format not in {"pcm", "wav", "mp3"}:
+            if audio_format not in AUDIO_FORMATS:
                 raise ValueError(f"Unsupported audio response format: {audio_format}")
-            file_path = os.path.join(folder, f"{self.request_counter}.{audio_format}")
+            file_path = folder / f"{self.request_counter}.{audio_format}"
 
             # add audio fade if no or low audio queue
-            if self.audio_queue.qsize() <= 2:
-                print(f"[DOWNLOADER] adding audio fade to file: {file_path}, audio queue: {self.audio_queue.qsize()}")
-                audio_bytes = self.add_smooth_fade(audio_bytes)
+            if self.audio_player.qsize <= 2:
+                print(f"[DOWNLOADER] adding audio fade to file: {file_path}, audio queue: {self.audio_player.qsize}")
+                audio_bytes = self.add_smooth_fade(audio_bytes, audio_format)
 
             # save audio file # TODO make optional, on with debug and also config and GUI option
-            with open(file_path, "wb") as f:
-                f.write(audio_bytes)
+            file_path.write_bytes(audio_bytes)
             print(f"[DOWNLOADER] saved: {file_path}")
 
-            # add file path to audio queue instead of bulky response object
-            self.add(file_path, "audio")
+            clip = AudioClip(
+                path=file_path,
+                format=audio_format,
+                sample_rate=voice_engine.sample_rate,
+                channels=voice_engine.channels,
+                sample_width=voice_engine.sample_width,
+            )
+            self.add(clip, "audio")
         except APIConnectionError as e:
             print(f"{config.active_tts_api} Connection Error: {e}")
         except APIStatusError as e:
             print(f"{config.active_tts_api} Server Error: {e.status_code}: {e.message}")
+        except Exception as e:
+            print(f"[DOWNLOADER] ERROR: {e}")
         finally:
             # always complete task to prevent deadlocks
             try:
@@ -191,7 +177,7 @@ class _QueueHandler():
                 pass
 
     @profiler.time_profile
-    def download(self):
+    def download(self) -> None:
         while config.running:
             # Check the stop event BEFORE pulling an item out of the queue
             if self.download_stop_event.is_set():
@@ -216,88 +202,35 @@ class _QueueHandler():
                 continue
 
     @profiler.time_profile
-    def process_ocr_queue(self):
+    def process_ocr_queue(self) -> None:
+        import ocr
+
         while config.running and config.ocr and not self.ocr_worker_stop_event.is_set():
             try:
                 # small timeout to prevent cpu and queue spamming
                 ocr_task = self.ocr_queue.get(timeout=0.1) # TODO timeout what to set it to
 
-                if self.ocr_worker_stop_event.is_set():
+                try:
+                    if self.ocr_worker_stop_event.is_set():
+                        continue
+                    ocr.run_ocr(ocr_task, False)
+                finally:
                     self.ocr_queue.task_done()
-                    continue
-
-                ocr.run_ocr(ocr_task, False)
             except queue.Empty:
                 continue
 
-    @profiler.time_profile
-    def play_audio(self):
-        while config.running:
-            try:
-                # small timeout to prevent cpu and queue spamming
-                file_path = self.audio_queue.get(timeout=0.5)
-
-                # stop playing if thread stop event is called
-                if self.audio_stop_event.is_set():
-                    self.audio_queue.task_done()
-                    self.audio_stop_event.clear()
-                    continue
-
-                if os.path.exists(file_path):
-                    print(f"Playing audio file: {file_path}")
-                    audio_format = os.path.splitext(file_path)[1].lstrip(".").lower()
-                    if audio_format == "pcm":
-                        with open(file_path, "rb") as audio_file:
-                            audio = AudioSegment(
-                                data=audio_file.read(),
-                                sample_width=voice_engine.sample_width,
-                                frame_rate=voice_engine.sample_rate,
-                                channels=voice_engine.channels,
-                            )
-                    else:
-                        audio = AudioSegment.from_file(file_path, format=audio_format)
-
-                    data = np.array(audio.get_array_of_samples())
-                    if audio.channels > 1:
-                        data = data.reshape((-1, audio.channels))
-
-                    sd.play(data, audio.frame_rate)
-                    self.audio_played_counter += 1
-                    print(f"Audio count: {self.audio_played_counter}")
-
-                    # interrupt instantly if stop event called
-                    while sd.get_stream().active:
-                        if self.audio_stop_event.is_set():
-                            sd.stop()
-                            break
-                        elif not config.running: # TODO remove? redundant and not proper way to check in threads?
-                            sd.stop()
-                            break
-
-                        # time.sleep(0.05) # TODO cause of small static if no audio queued?
-
-                    print(f"Finished playing: {file_path}")
-
-                self.audio_queue.task_done()
-            except queue.Empty:
-                continue
-
-    def setDownloader(self):
+    def setDownloader(self) -> None:
         # check if thread exists and is currently alive
         if not self.downloader or not self.downloader.is_alive():
             print(f"Starting downloader thread...")
             self.downloader = threading.Thread(target=self.download, daemon=True)
             self.downloader.start()
 
-    def setAudioPlayer(self):
-        # check if thread exists and is currently alive
-        if not self.audio_player or not self.audio_player.is_alive():
-            print(f"Starting audio player thread...")
-            self.audio_player = threading.Thread(target=self.play_audio, daemon=True)
-            self.audio_player.start()
+    def setAudioPlayer(self) -> None:
+        self.audio_player.start()
 
-    def setOcrWorker(self):
-        if config.ocr and not self.ocr_worker or not self.ocr_worker.is_alive():
+    def setOcrWorker(self) -> None:
+        if config.ocr and (self.ocr_worker is None or not self.ocr_worker.is_alive()):
             print(f"Starting OCR thread...")
             # TODO target?
             self.ocr_worker = threading.Thread(target=self.process_ocr_queue, daemon=True)
