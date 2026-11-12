@@ -173,12 +173,6 @@ Hotkeys can be overridden in the `KEYBINDS` object in the settings GUI or `confi
 
 ## Development and Tests
 
-Run the test suite with:
-
-```powershell
-uv run python -m unittest discover -s tests -p "test_*.py"
-```
-
 Run Pyright with:
 
 ```powershell
